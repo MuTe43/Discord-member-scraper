@@ -1,288 +1,366 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Server Lens</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg: #0e0f13;
-    --surface: #16181f;
-    --surface2: #1e2029;
-    --border: #2a2d3a;
-    --border-hover: #3d4157;
-    --accent: #5865f2;
-    --accent-glow: rgba(88,101,242,0.2);
-    --accent2: #eb459e;
-    --text: #e3e5e8;
-    --muted: #72767d;
-    --online: #3ba55c;
-    --tag-bg: #1a1d2e;
-    --danger: #ed4245;
-    --warning: #faa81a;
-  }
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-  body::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(88,101,242,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(88,101,242,0.03) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none; z-index: 0;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0e0f13;
+  --surface: #16181f;
+  --surface2: #1e2029;
+  --surface3: #232634;
+  --border: #2a2d3a;
+  --border-hover: #3d4157;
+  --accent: #5865f2;
+  --accent-glow: rgba(88,101,242,0.2);
+  --accent2: #eb459e;
+  --text: #e3e5e8;
+  --muted: #72767d;
+  --online: #3ba55c;
+  --tag-bg: #1a1d2e;
+  --danger: #ed4245;
+}
+html, body { height: 100%; }
+body {
+  font-family: 'Syne', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  direction: ltr;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(88,101,242,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88,101,242,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
 
-  .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+/* ── Layout ── */
+.app { position: relative; z-index: 1; max-width: 1200px; margin: 0 auto; padding: 32px 24px 60px; }
 
-  header {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    margin-bottom: 40px; gap: 16px; flex-wrap: wrap;
-  }
-  .logo-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
-  .logo h1 {
-    font-size: 36px; font-weight: 800; letter-spacing: -1px;
-    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  }
+header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  margin-bottom: 32px; gap: 16px; flex-wrap: wrap;
+}
+.logo-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 4px; }
+.logo h1 {
+  font-size: 32px; font-weight: 800; letter-spacing: -1px;
+  background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
 
-  /* Token bar */
-  .token-bar {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px 20px;
-    margin-bottom: 28px;
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .token-bar label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
-  .token-input-wrap { flex: 1; position: relative; min-width: 200px; }
-  .token-input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 9px 36px 9px 12px;
-    color: var(--text);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.15s;
-    letter-spacing: 1px;
-  }
-  .token-input:focus { border-color: var(--accent); }
-  .token-toggle {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px;
-  }
-  .token-toggle:hover { color: var(--text); }
-  .user-chip {
-    display: flex; align-items: center; gap: 8px;
-    background: var(--surface2); border: 1px solid var(--online);
-    border-radius: 100px; padding: 4px 12px 4px 4px;
-  }
-  .user-chip-avatar {
-    width: 24px; height: 24px; border-radius: 50%;
-    background: var(--accent); display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700;
-  }
-  .user-chip-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--online); }
-  .token-status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
-  .token-status.error { color: var(--danger); }
-  .token-status.ok { color: var(--online); }
+/* ── Token bar ── */
+.token-bar {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 20px; margin-bottom: 24px;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+.token-bar label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+.token-input-wrap { flex: 1; position: relative; min-width: 200px; }
+.token-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 36px 9px 12px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  outline: none; transition: border-color 0.15s;
+  direction: ltr; text-align: left;
+}
+.token-input:focus { border-color: var(--accent); }
+.token-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.token-toggle:hover { color: var(--text); }
+.user-chip { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--online); border-radius: 100px; padding: 4px 12px 4px 4px; }
+.user-chip-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; overflow: hidden; }
+.user-chip-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.user-chip-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--online); }
+.token-status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+.token-status.error { color: var(--danger); }
+.token-status.ok { color: var(--online); }
 
-  /* Buttons */
-  .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
-    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
-  .btn-primary { background: var(--accent); color: white; box-shadow: 0 0 20px var(--accent-glow); }
-  .btn-primary:not(:disabled):hover { background: #6875f5; transform: translateY(-1px); }
-  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-  .btn-ghost:not(:disabled):hover { border-color: var(--border-hover); color: var(--text); }
-  .btn-sm { padding: 7px 14px; font-size: 13px; }
-  .btn-xs { padding: 4px 10px; font-size: 12px; }
-  .icon-btn {
-    width: 28px; height: 28px; border-radius: 6px; border: none;
-    background: transparent; color: var(--muted); cursor: pointer;
-    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
-  }
-  .icon-btn:hover { background: var(--surface2); color: var(--text); }
-  .icon-btn.danger:hover { background: rgba(237,66,69,0.15); color: var(--danger); }
+/* ── Buttons ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
+  font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; transition: all 0.15s;
+  white-space: nowrap; direction: ltr;
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+.btn-primary { background: var(--accent); color: white; box-shadow: 0 0 20px var(--accent-glow); }
+.btn-primary:not(:disabled):hover { background: #6875f5; transform: translateY(-1px); }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:not(:disabled):hover { border-color: var(--border-hover); color: var(--text); }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.icon-btn { width: 28px; height: 28px; border-radius: 6px; border: none; background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+.icon-btn:hover { background: var(--surface2); color: var(--text); }
+.icon-btn.danger:hover { background: rgba(237,66,69,0.15); color: var(--danger); }
 
-  /* Scrape modal trigger row */
-  .action-row { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; align-items: center; }
-  .action-row .hint { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+/* ── Action row ── */
+.action-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+.action-row .hint { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
 
-  /* Servers grid */
-  .servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 28px; }
-  .server-card {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative;
-  }
-  .server-card::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.2s;
-  }
-  .server-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-  .server-card:hover::before, .server-card.active::before { opacity: 1; }
-  .server-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 32px var(--accent-glow); }
-  .card-header { padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
-  .server-icon {
-    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center; overflow: hidden;
-  }
-  .server-icon img { width: 100%; height: 100%; object-fit: cover; }
-  .server-icon-text { font-size: 18px; font-weight: 800; color: white; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-  .card-info { flex: 1; min-width: 0; }
-  .card-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .card-actions { display: flex; gap: 4px; flex-shrink: 0; }
-  .rescrape-btn { opacity: 0; transition: opacity 0.15s; }
-  .server-card:hover .rescrape-btn { opacity: 1; }
+/* ── Server cards ── */
+.servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.server-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative;
+}
+.server-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.2s;
+}
+.server-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.server-card:hover::before, .server-card.active::before { opacity: 1; }
+.server-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 32px var(--accent-glow); }
+.card-header { padding: 16px 18px; display: flex; align-items: center; gap: 12px; }
+.server-icon { width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--surface2); }
+.server-icon img { width: 100%; height: 100%; object-fit: cover; }
+.server-icon-text { font-size: 17px; font-weight: 800; color: white; }
+.card-info { flex: 1; min-width: 0; }
+.card-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; text-align: left; }
+.card-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.rescrape-btn { opacity: 0; transition: opacity 0.15s; }
+.server-card:hover .rescrape-btn { opacity: 1; }
 
-  .empty-state { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
-  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
-  .empty-state p { font-size: 15px; }
-  .empty-state p span { color: var(--accent); }
+.empty-state { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-icon { font-size: 44px; margin-bottom: 14px; opacity: 0.4; }
+.empty-state p { font-size: 15px; }
+.empty-state p span { color: var(--accent); }
 
-  /* Panel */
-  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; animation: slideUp 0.2s ease; }
-  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-  .panel-header {
-    padding: 18px 24px; border-bottom: 1px solid var(--border);
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-  }
-  .panel-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-  .badge {
-    font-family: 'JetBrains Mono', monospace; font-size: 11px;
-    background: var(--surface2); border: 1px solid var(--border);
-    padding: 3px 8px; border-radius: 100px; color: var(--muted);
-  }
-  .panel-toolbar { display: flex; gap: 8px; align-items: center; }
-  .search-input {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 14px; color: var(--text); font-family: 'JetBrains Mono', monospace;
-    font-size: 13px; width: 220px; transition: border-color 0.15s; outline: none;
-  }
-  .search-input:focus { border-color: var(--accent); }
-  .search-input::placeholder { color: var(--muted); }
+/* ── SIDEBAR PANEL LAYOUT ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  animation: slideUp 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-  /* Member list */
-  .member-list { padding: 10px; display: flex; flex-direction: column; gap: 3px; max-height: 480px; overflow-y: auto; }
-  .member-list::-webkit-scrollbar { width: 4px; }
-  .member-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  .member-row {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: 8px; cursor: pointer;
-    transition: background 0.1s; border: 1px solid transparent;
-  }
-  .member-row:hover { background: var(--surface2); }
-  .member-row.selected { background: var(--tag-bg); border-color: var(--accent); }
-  .member-avatar {
-    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; color: white; overflow: hidden;
-  }
-  .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
-  .member-info { flex: 1; min-width: 0; }
-  .member-name { font-size: 14px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-  .member-username { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
-  .quirks-preview { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
-  .quirk-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; background: var(--tag-bg); border: 1px solid var(--border); color: var(--accent); padding: 2px 7px; border-radius: 4px; }
-  .member-row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.1s; }
-  .member-row:hover .member-row-actions { opacity: 1; }
+.panel-topbar {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.panel-server-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.panel-server-name { font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; background: var(--surface2); border: 1px solid var(--border); padding: 3px 8px; border-radius: 100px; color: var(--muted); flex-shrink: 0; }
 
-  /* Quirks editor */
-  .quirks-editor { border-top: 1px solid var(--border); padding: 20px 24px; animation: slideUp 0.15s ease; }
-  .quirks-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-  .quirks-editor-title { font-size: 13px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; }
-  .quirks-editor-title span { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
-  .quirk-tags-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 28px; }
-  .quirk-tag-editable {
-    display: inline-flex; align-items: center; gap: 6px;
-    font-family: 'JetBrains Mono', monospace; font-size: 12px;
-    background: var(--tag-bg); border: 1px solid var(--border);
-    color: var(--text); padding: 4px 10px; border-radius: 6px; transition: border-color 0.1s;
-  }
-  .quirk-tag-editable:hover { border-color: var(--border-hover); }
-  .quirk-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 0; transition: color 0.1s; }
-  .quirk-remove:hover { color: var(--danger); }
-  .quirk-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
-  .quirk-input {
-    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 8px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
-    font-size: 13px; outline: none; transition: border-color 0.15s;
-  }
-  .quirk-input:focus { border-color: var(--accent); }
-  .quirk-input::placeholder { color: var(--muted); }
-  .notes-area {
-    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
-    padding: 10px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
-    font-size: 13px; resize: vertical; min-height: 80px; outline: none; transition: border-color 0.15s;
-  }
-  .notes-area:focus { border-color: var(--accent); }
-  .notes-area::placeholder { color: var(--muted); }
+/* Two-column body */
+.panel-body {
+  display: flex;
+  min-height: 520px;
+  max-height: 70vh;
+}
 
-  /* Modal */
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; animation: fadeIn 0.15s ease; }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 500px; animation: slideUp 0.2s ease; max-height: 90vh; overflow-y: auto; }
-  .modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-  .modal-subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
-  .form-group { margin-bottom: 16px; }
-  .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+/* Left: member sidebar */
+.member-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+}
+.sidebar-search-wrap { padding: 12px; border-bottom: 1px solid var(--border); }
+.sidebar-search {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  direction: ltr;
+  text-align: left;
+}
+.sidebar-search::placeholder { color: var(--muted); }
+.sidebar-search:focus { border-color: var(--accent); }
 
-  /* Guild picker */
-  .guild-list { display: flex; flex-direction: column; gap: 6px; max-height: 350px; overflow-y: auto; margin-bottom: 8px; }
-  .guild-list::-webkit-scrollbar { width: 4px; }
-  .guild-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  .guild-item {
-    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-    border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.1s;
-  }
-  .guild-item:hover { background: var(--surface2); border-color: var(--border); }
-  .guild-item.selected { background: var(--tag-bg); border-color: var(--accent); }
-  .guild-item-icon { width: 36px; height: 36px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface2); font-size: 16px; }
-  .guild-item-icon img { width: 100%; height: 100%; object-fit: cover; }
-  .guild-item-name { font-size: 14px; font-weight: 600; }
-  .guild-item-id { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
-  .guild-item-check { margin-left: auto; color: var(--accent); font-size: 16px; opacity: 0; transition: opacity 0.1s; }
-  .guild-item.selected .guild-item-check { opacity: 1; }
+.member-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.member-list::-webkit-scrollbar { width: 3px; }
+.member-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
-  /* Spinner */
-  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.member-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  transition: background 0.1s; border: 1px solid transparent;
+  direction: ltr;
+}
+.member-row:hover { background: var(--surface2); }
+.member-row.active { background: var(--tag-bg); border-color: var(--accent); }
 
-  /* Toast */
-  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
-  .toast {
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 18px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
-    animation: toastIn 0.2s ease; max-width: 320px; display: flex; align-items: center; gap: 10px;
-  }
-  .toast.success { border-color: var(--online); }
-  .toast.error { border-color: var(--danger); }
-  .toast.info { border-color: var(--accent); }
-  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+.member-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: white; overflow: hidden;
+}
+.member-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
-  .no-members { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
-  .hidden { display: none !important; }
-  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+.member-row-info { flex: 1; min-width: 0; }
+.member-row-name {
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  direction: ltr; text-align: left;
+}
+.member-row-handle {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  direction: ltr; text-align: left;
+}
+.member-row-quirks { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
+.quirk-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+.member-row-del { opacity: 0; flex-shrink: 0; transition: opacity 0.1s; }
+.member-row:hover .member-row-del { opacity: 1; }
+
+.no-members { text-align: center; padding: 40px 16px; color: var(--muted); font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+
+/* Right: detail panel */
+.member-detail {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.member-detail::-webkit-scrollbar { width: 4px; }
+.member-detail::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.detail-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  color: var(--muted); gap: 12px; padding: 40px;
+  text-align: center;
+}
+.detail-empty-icon { font-size: 36px; opacity: 0.3; }
+.detail-empty-text { font-size: 13px; font-family: 'JetBrains Mono', monospace; line-height: 1.6; }
+
+/* Member detail header */
+.detail-header {
+  padding: 24px 24px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px;
+  flex-shrink: 0;
+}
+.detail-avatar {
+  width: 56px; height: 56px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; font-weight: 800; color: white; overflow: hidden;
+  border: 2px solid var(--border);
+}
+.detail-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.detail-name-block { flex: 1; min-width: 0; }
+.detail-name { font-size: 18px; font-weight: 700; direction: ltr; text-align: left; }
+.detail-handle { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 3px; direction: ltr; text-align: left; }
+.detail-joined { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* Detail content sections */
+.detail-section { padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.detail-section:last-child { border-bottom: none; }
+.section-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 1.5px;
+  margin-bottom: 12px;
+}
+
+/* Quirk tags */
+.quirk-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 28px; }
+.quirk-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  background: var(--tag-bg); border: 1px solid var(--accent);
+  color: var(--accent); padding: 4px 10px; border-radius: 6px;
+  transition: all 0.1s;
+}
+.quirk-tag button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 0; line-height: 1; transition: color 0.1s; }
+.quirk-tag button:hover { color: var(--danger); }
+.quirk-input-row { display: flex; gap: 8px; }
+.quirk-input {
+  flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; outline: none; transition: border-color 0.15s;
+  direction: ltr; text-align: left;
+}
+.quirk-input:focus { border-color: var(--accent); }
+.quirk-input::placeholder { color: var(--muted); }
+
+/* Notes */
+.notes-area {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; resize: vertical; min-height: 100px; outline: none;
+  transition: border-color 0.15s; line-height: 1.6;
+  direction: ltr; text-align: left;
+}
+.notes-area:focus { border-color: var(--accent); }
+.notes-area::placeholder { color: var(--muted); }
+
+/* ── Modals ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; animation: fadeIn 0.15s ease; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 100%; max-width: 480px; animation: slideUp 0.2s ease; max-height: 90vh; overflow-y: auto; }
+.modal h2 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+.modal-subtitle { color: var(--muted); font-size: 13px; margin-bottom: 22px; line-height: 1.5; }
+.form-group { margin-bottom: 16px; }
+.form-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.form-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 14px;
+  outline: none; transition: border-color 0.15s; direction: ltr; text-align: left;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input::placeholder { color: var(--muted); }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+/* Guild picker */
+.guild-list { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow-y: auto; margin-bottom: 4px; }
+.guild-list::-webkit-scrollbar { width: 4px; }
+.guild-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.guild-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.1s; direction: ltr; }
+.guild-item:hover { background: var(--surface2); border-color: var(--border); }
+.guild-item.selected { background: var(--tag-bg); border-color: var(--accent); }
+.guild-item-icon { width: 34px; height: 34px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface2); font-size: 15px; }
+.guild-item-icon img { width: 100%; height: 100%; object-fit: cover; }
+.guild-item-name { font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.guild-item-check { margin-left: auto; color: var(--accent); font-size: 14px; opacity: 0; transition: opacity 0.1s; flex-shrink: 0; }
+.guild-item.selected .guild-item-check { opacity: 1; }
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
+
+/* Spinner / progress */
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.25); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.scrape-log { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; min-height: 70px; }
+.scrape-log-header { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.scrape-log-text { color: var(--text); line-height: 1.6; }
+
+/* Toasts */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 16px; font-size: 13px; font-family: 'JetBrains Mono', monospace; animation: toastIn 0.2s ease; max-width: 300px; display: flex; align-items: center; gap: 10px; }
+.toast.success { border-color: var(--online); }
+.toast.error { border-color: var(--danger); }
+.toast.info { border-color: var(--accent); }
+@keyframes toastIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: translateX(0); } }
+
+.hidden { display: none !important; }
 </style>
 </head>
 <body>
@@ -296,9 +374,9 @@
 
   <!-- Token bar -->
   <div class="token-bar">
-    <label>User Token</label>
+    <label>Token</label>
     <div class="token-input-wrap">
-      <input type="password" class="token-input" id="tokenInput" placeholder="Paste your Discord user token..." />
+      <input type="password" class="token-input" id="tokenInput" placeholder="Paste your Discord user token..." autocomplete="off" spellcheck="false" />
       <button class="token-toggle" onclick="toggleTokenVisibility()" id="tokenToggle">👁</button>
     </div>
     <button class="btn btn-primary btn-sm" onclick="validateToken()" id="validateBtn">Connect</button>
@@ -309,51 +387,48 @@
   <!-- Action row -->
   <div class="action-row">
     <button class="btn btn-primary" onclick="openScrapeModal()" id="scrapeBtn" disabled>
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       Scrape Server
     </button>
-    <span class="hint">Connect your token first, then pick a server to scrape.</span>
+    <span class="hint">Connect token → pick server → scrape</span>
   </div>
 
-  <!-- Servers grid -->
+  <!-- Server cards -->
   <div class="servers-grid" id="serversGrid">
     <div class="empty-state" id="emptyState">
       <div class="empty-icon">🔭</div>
-      <p>No servers scraped yet. Connect your token and click <span>Scrape Server</span>.</p>
+      <p>No servers yet. Connect your token and click <span>Scrape Server</span>.</p>
     </div>
   </div>
 
-  <!-- Member panel -->
+  <!-- Member panel (sidebar layout) -->
   <div id="memberPanel" class="hidden"></div>
 </div>
 
-<!-- Scrape modal (guild picker) -->
+<!-- Scrape modal -->
 <div class="modal-overlay hidden" id="scrapeModal">
   <div class="modal">
     <h2>Scrape a Server</h2>
-    <p class="modal-subtitle">Pick one of your servers below, or enter a guild ID manually. Bots will be filtered out automatically.</p>
+    <p class="modal-subtitle">Pick one of your servers or enter a Guild ID manually.</p>
 
     <div id="guildPickerSection">
       <div class="form-group">
         <label class="form-label">Your Servers</label>
         <div class="guild-list" id="guildList">
-          <div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">Loading your servers...</div>
+          <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace">Loading...</div>
         </div>
       </div>
       <div class="divider"></div>
-      <div class="form-group" style="margin-top:12px">
+      <div class="form-group">
         <label class="form-label">Or enter Guild ID manually</label>
-        <input class="token-input" id="manualGuildId" placeholder="e.g. 1234567890123456789" style="width:100%" />
+        <input class="form-input" id="manualGuildId" placeholder="e.g. 1234567890123456789" spellcheck="false" />
       </div>
     </div>
 
-    <div id="scrapeProgress" class="hidden" style="padding:20px">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;min-height:80px;display:flex;flex-direction:column;gap:6px">
-        <div style="display:flex;align-items:center;gap:10px;color:var(--muted);margin-bottom:4px">
-          <div class="spinner" style="width:12px;height:12px;border-width:2px"></div>
-          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px">Gateway log</span>
-        </div>
-        <div id="scrapeProgressText" style="color:var(--text);line-height:1.6"></div>
+    <div id="scrapeProgress" class="hidden" style="padding: 4px 0">
+      <div class="scrape-log">
+        <div class="scrape-log-header"><div class="spinner"></div> Gateway log</div>
+        <div class="scrape-log-text" id="scrapeProgressText">Starting...</div>
       </div>
     </div>
 
@@ -377,7 +452,7 @@ let activeServer = null;
 let activeMember = null;
 let searchVal = '';
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 window.onload = async () => {
   if (token) {
     document.getElementById('tokenInput').value = token;
@@ -386,49 +461,39 @@ window.onload = async () => {
   await loadServers();
 };
 
-// ─── Token ────────────────────────────────────────────────────────────────────
+// ── Token ─────────────────────────────────────────────────────────────────────
 function toggleTokenVisibility() {
   const input = document.getElementById('tokenInput');
-  const btn = document.getElementById('tokenToggle');
   input.type = input.type === 'password' ? 'text' : 'password';
-  btn.textContent = input.type === 'password' ? '👁' : '🔒';
+  document.getElementById('tokenToggle').textContent = input.type === 'password' ? '👁' : '🔒';
 }
 
 async function validateToken(silent = false) {
-  const input = document.getElementById('tokenInput');
-  token = input.value.trim();
+  token = document.getElementById('tokenInput').value.trim();
   if (!token) { showStatus('error', 'Paste a token first.'); return; }
-
   const btn = document.getElementById('validateBtn');
   btn.innerHTML = '<span class="spinner"></span>';
   btn.disabled = true;
-
   try {
     const res = await fetch(`${API}/api/validate-token`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({token})
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Invalid token');
-
     validatedUser = data.user;
     userGuilds = data.guilds;
     localStorage.setItem('sl_token', token);
-
     const name = data.user.global_name || data.user.username;
-    const initials = name.slice(0,2).toUpperCase();
+    const avatarHtml = data.user.avatar
+      ? `<img src="https://cdn.discordapp.com/avatars/${data.user.id}/${data.user.avatar}.png?size=32" alt="">`
+      : name.slice(0,2).toUpperCase();
     document.getElementById('userChip').className = 'user-chip';
-    document.getElementById('userChip').innerHTML = `
-      <div class="user-chip-avatar">${initials}</div>
-      <div class="user-chip-name">${escHtml(name)}</div>
-    `;
-    document.getElementById('tokenStatus').className = 'token-status ok';
-    document.getElementById('tokenStatus').textContent = '✓ connected';
+    document.getElementById('userChip').innerHTML = `<div class="user-chip-avatar">${avatarHtml}</div><div class="user-chip-name">${escHtml(name)}</div>`;
+    showStatus('ok', '✓ connected');
     document.getElementById('scrapeBtn').disabled = false;
-
     if (!silent) toast('success', `Connected as ${name}`);
-  } catch (e) {
+  } catch(e) {
     showStatus('error', e.message);
     document.getElementById('userChip').className = 'hidden';
     document.getElementById('scrapeBtn').disabled = true;
@@ -446,18 +511,18 @@ function showStatus(type, msg) {
   el.textContent = msg;
 }
 
-// ─── Load servers from backend ───────────────────────────────────────────────
+// ── Load servers ──────────────────────────────────────────────────────────────
 async function loadServers() {
   try {
     const res = await fetch(`${API}/api/servers`);
     servers = await res.json();
     render();
-  } catch (e) {
-    toast('error', 'Cannot reach backend. Is it running?');
+  } catch(e) {
+    toast('error', 'Cannot reach backend. Is it running on port 8000?');
   }
 }
 
-// ─── Scrape Modal ─────────────────────────────────────────────────────────────
+// ── Scrape modal ──────────────────────────────────────────────────────────────
 function openScrapeModal() {
   selectedGuildId = null;
   document.getElementById('manualGuildId').value = '';
@@ -466,37 +531,27 @@ function openScrapeModal() {
   document.getElementById('startScrapeBtn').disabled = false;
   document.getElementById('startScrapeBtn').innerHTML = 'Scrape';
 
-  // Render guild list
   const list = document.getElementById('guildList');
-  if (userGuilds.length === 0) {
-    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">No servers found.</div>';
+  if (!userGuilds.length) {
+    list.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;font-family:JetBrains Mono,monospace">No servers found.</div>';
   } else {
     list.innerHTML = userGuilds.map(g => {
       const iconUrl = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : null;
-      const iconHtml = iconUrl
-        ? `<img src="${iconUrl}" alt="" onerror="this.style.display='none'">`
-        : `<span>${g.name.charAt(0)}</span>`;
-      const alreadyScraped = servers[g.id] ? ' <span style="color:var(--muted);font-size:10px">(scraped)</span>' : '';
-      return `
-        <div class="guild-item" onclick="selectGuild('${g.id}')" id="guild_${g.id}">
-          <div class="guild-item-icon">${iconHtml}</div>
-          <div>
-            <div class="guild-item-name">${escHtml(g.name)}${alreadyScraped}</div>
-            <div class="guild-item-id">${g.id}</div>
-          </div>
-          <div class="guild-item-check">✓</div>
-        </div>
-      `;
+      const iconHtml = iconUrl ? `<img src="${iconUrl}" alt="">` : `<span>${g.name.charAt(0)}</span>`;
+      const scraped = servers[g.id] ? ' <span style="font-size:10px;color:var(--muted);font-weight:400">(scraped)</span>' : '';
+      return `<div class="guild-item" onclick="selectGuild('${g.id}')" id="guild_${g.id}">
+        <div class="guild-item-icon">${iconHtml}</div>
+        <div class="guild-item-name">${escHtml(g.name)}${scraped}</div>
+        <div class="guild-item-check">✓</div>
+      </div>`;
     }).join('');
   }
-
   document.getElementById('scrapeModal').classList.remove('hidden');
 }
 
 function selectGuild(id) {
   document.querySelectorAll('.guild-item').forEach(el => el.classList.remove('selected'));
-  const el = document.getElementById(`guild_${id}`);
-  if (el) el.classList.add('selected');
+  document.getElementById(`guild_${id}`)?.classList.add('selected');
   selectedGuildId = id;
   document.getElementById('manualGuildId').value = '';
 }
@@ -504,49 +559,35 @@ function selectGuild(id) {
 async function startScrape() {
   const guildId = selectedGuildId || document.getElementById('manualGuildId').value.trim();
   if (!guildId) { toast('error', 'Select a server or enter a Guild ID.'); return; }
-
   document.getElementById('guildPickerSection').classList.add('hidden');
   document.getElementById('scrapeProgress').classList.remove('hidden');
   document.getElementById('startScrapeBtn').disabled = true;
-
   const logEl = document.getElementById('scrapeProgressText');
-  const appendLog = line => {
-    logEl.textContent = line;  // show latest line
-  };
-
-  appendLog('Starting...');
 
   try {
     await new Promise((resolve, reject) => {
-      // Use fetch + ReadableStream to consume SSE
       fetch(`${API}/api/scrape`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({token, guild_id: guildId})
       }).then(res => {
         if (!res.ok) return res.json().then(d => reject(new Error(d.detail || 'Scrape failed')));
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buf = '';
-
+        let result = null;
         function read() {
           reader.read().then(({done, value}) => {
-            if (done) { resolve(); return; }
+            if (done) { resolve(result); return; }
             buf += decoder.decode(value, {stream: true});
             const lines = buf.split('\n');
-            buf = lines.pop(); // incomplete last line
+            buf = lines.pop();
             for (const line of lines) {
               if (!line.startsWith('data: ')) continue;
               try {
                 const evt = JSON.parse(line.slice(6));
-                if (evt.type === 'progress') {
-                  appendLog(evt.text);
-                } else if (evt.type === 'done') {
-                  appendLog(`✓ ${evt.scraped} members scraped`);
-                  resolve(evt);
-                } else if (evt.type === 'error') {
-                  reject(new Error(evt.detail));
-                }
+                if (evt.type === 'progress') logEl.textContent = evt.text;
+                else if (evt.type === 'done') { logEl.textContent = `✓ ${evt.scraped} members scraped`; result = evt; }
+                else if (evt.type === 'error') reject(new Error(evt.detail));
               } catch(e) {}
             }
             read();
@@ -554,17 +595,16 @@ async function startScrape() {
         }
         read();
       }).catch(reject);
-    }).then(async (evt) => {
+    }).then(async evt => {
       if (!evt) return;
       toast('success', `Scraped ${evt.scraped} members from ${evt.name}`);
       closeModal('scrapeModal');
       await loadServers();
-      activeServer = guildId;
-      activeMember = null;
+      activeServer = guildId; activeMember = null; searchVal = '';
       render();
       setTimeout(() => document.getElementById('memberPanel')?.scrollIntoView({behavior:'smooth', block:'nearest'}), 100);
     });
-  } catch (e) {
+  } catch(e) {
     toast('error', e.message);
     document.getElementById('guildPickerSection').classList.remove('hidden');
     document.getElementById('scrapeProgress').classList.add('hidden');
@@ -573,11 +613,16 @@ async function startScrape() {
   }
 }
 
-// ─── Render ───────────────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   renderServers();
-  if (activeServer) renderPanel();
-  else document.getElementById('memberPanel').classList.add('hidden');
+  const panel = document.getElementById('memberPanel');
+  if (activeServer && servers[activeServer]) {
+    panel.classList.remove('hidden');
+    renderPanel();
+  } else {
+    panel.classList.add('hidden');
+  }
 }
 
 function renderServers() {
@@ -585,14 +630,12 @@ function renderServers() {
   const ids = Object.keys(servers);
   document.getElementById('emptyState').classList.toggle('hidden', ids.length > 0);
   grid.querySelectorAll('.server-card').forEach(e => e.remove());
-
   ids.forEach(id => {
     const s = servers[id];
     const iconHtml = s.icon
-      ? `<img src="https://cdn.discordapp.com/icons/${id}/${s.icon}.png?size=64" alt="" onerror="this.outerHTML='<div class=server-icon-text>${escHtml(s.name.charAt(0))}</div>'">`
+      ? `<img src="https://cdn.discordapp.com/icons/${id}/${s.icon}.png?size=64" alt="" onerror="this.style.display='none'">`
       : `<div class="server-icon-text">${escHtml(s.name.charAt(0))}</div>`;
-    const memberCount = s.member_count ?? Object.keys(s.members || {}).length;
-
+    const count = s.member_count ?? Object.keys(s.members || {}).length;
     const card = document.createElement('div');
     card.className = 'server-card' + (activeServer === id ? ' active' : '');
     card.innerHTML = `
@@ -600,118 +643,149 @@ function renderServers() {
         <div class="server-icon">${iconHtml}</div>
         <div class="card-info">
           <div class="card-name">${escHtml(s.name)}</div>
-          <div class="card-meta">${memberCount} member${memberCount !== 1 ? 's' : ''}</div>
+          <div class="card-meta">${count} member${count !== 1 ? 's' : ''}</div>
         </div>
         <div class="card-actions">
           <button class="icon-btn rescrape-btn" title="Re-scrape" onclick="rescrapeServer(event,'${id}')">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
           <button class="icon-btn danger" title="Delete" onclick="deleteServer(event,'${id}')">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <svg width="11" height="11" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
-      </div>
-    `;
+      </div>`;
     card.addEventListener('click', () => toggleServer(id));
     grid.appendChild(card);
   });
 }
 
 function renderPanel() {
-  const panel = document.getElementById('memberPanel');
   const s = servers[activeServer];
-  if (!s) { panel.classList.add('hidden'); return; }
-  panel.classList.remove('hidden');
+  if (!s) return;
+  const allMembers = Object.values(s.members || {});
 
-  const members = Object.values(s.members || {});
-  const filtered = searchVal
-    ? members.filter(m => (m.name || m.username || '').toLowerCase().includes(searchVal.toLowerCase()))
-    : members;
+  // Search: match display name OR @username
+  const q = searchVal.toLowerCase().replace(/^@/, '');
+  const filtered = q
+    ? allMembers.filter(m =>
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.username || '').toLowerCase().includes(q)
+      )
+    : allMembers;
 
-  // Quirks editor
-  let quirkHtml = '';
-  if (activeMember && s.members[activeMember]) {
-    const m = s.members[activeMember];
-    const displayName = m.name || m.username;
-    quirkHtml = `
-      <div class="quirks-editor">
-        <div class="quirks-editor-header">
-          <div class="quirks-editor-title">Editing <span>${escHtml(displayName)}</span></div>
-          <button class="icon-btn" onclick="activeMember=null;renderPanel()">
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          </button>
-        </div>
-        <div class="quirk-tags-list">
-          ${(m.quirks || []).map(q => `
-            <div class="quirk-tag-editable">${escHtml(q)}
-              <button class="quirk-remove" onclick="removeQuirk(${JSON.stringify(q)})">✕</button>
+  const iconHtml = s.icon
+    ? `<img src="https://cdn.discordapp.com/icons/${activeServer}/${s.icon}.png?size=32" style="width:28px;height:28px;border-radius:8px;object-fit:cover" alt="">`
+    : `<div style="width:28px;height:28px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white">${escHtml(s.name.charAt(0))}</div>`;
+
+  // Build member sidebar rows
+  const memberRows = filtered.length === 0
+    ? `<div class="no-members">${q ? 'No matches.' : 'No members.'}</div>`
+    : filtered.map(m => {
+        const mid = m.id;
+        const displayName = m.name || m.username || 'Unknown';
+        const username = m.username || '';
+        const color = stringToColor(mid);
+        const avatarHtml = m.avatar
+          ? `<img src="https://cdn.discordapp.com/avatars/${mid}/${m.avatar}.png?size=64" alt="">`
+          : escHtml(displayName.slice(0, 2).toUpperCase());
+        const quirksHtml = (m.quirks || []).slice(0, 4).map(() => `<span class="quirk-dot"></span>`).join('');
+        return `
+          <div class="member-row${activeMember === mid ? ' active' : ''}" onclick="selectMember('${mid}')">
+            <div class="member-avatar" style="background:${color}">${avatarHtml}</div>
+            <div class="member-row-info">
+              <div class="member-row-name">${escHtml(displayName)}</div>
+              ${username && username !== displayName ? `<div class="member-row-handle">@${escHtml(username)}</div>` : ''}
+              ${quirksHtml ? `<div class="member-row-quirks">${quirksHtml}</div>` : ''}
             </div>
-          `).join('')}
+            <button class="icon-btn danger member-row-del" onclick="deleteMember(event,'${mid}')" title="Remove">
+              <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+          </div>`;
+      }).join('');
+
+  // Build detail panel
+  let detailHtml;
+  if (!activeMember || !s.members[activeMember]) {
+    detailHtml = `
+      <div class="detail-empty">
+        <div class="detail-empty-icon">👈</div>
+        <div class="detail-empty-text">Select a member from the list<br>to view and edit their info</div>
+      </div>`;
+  } else {
+    const m = s.members[activeMember];
+    const displayName = m.name || m.username || 'Unknown';
+    const username = m.username || '';
+    const color = stringToColor(m.id);
+    const avatarHtml = m.avatar
+      ? `<img src="https://cdn.discordapp.com/avatars/${m.id}/${m.avatar}.png?size=128" alt="">`
+      : escHtml(displayName.slice(0, 2).toUpperCase());
+    const joinedStr = m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'}) : null;
+
+    const quirksHtml = (m.quirks || []).map(q => `
+      <span class="quirk-tag">
+        ${escHtml(q)}
+        <button onclick="removeQuirk(${JSON.stringify(q)})">✕</button>
+      </span>`).join('');
+
+    detailHtml = `
+      <div class="detail-header">
+        <div class="detail-avatar" style="background:${color}">${avatarHtml}</div>
+        <div class="detail-name-block">
+          <div class="detail-name">${escHtml(displayName)}</div>
+          ${username ? `<div class="detail-handle">@${escHtml(username)}</div>` : ''}
+          ${joinedStr ? `<div class="detail-joined">Joined ${joinedStr}</div>` : ''}
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="section-label">Quirk Tags</div>
+        <div class="quirk-tags" id="quirkTagsList">
+          ${quirksHtml || `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">No tags yet</span>`}
         </div>
         <div class="quirk-input-row">
-          <input class="quirk-input" id="quirkInput" placeholder="Add quirk tag (e.g. lurker, toxic, funny)..." onkeydown="if(event.key==='Enter')addQuirk()" />
+          <input class="quirk-input" id="quirkInput" placeholder="Add a tag (e.g. lurker, mod, funny)..." onkeydown="if(event.key==='Enter')addQuirk()" />
           <button class="btn btn-primary btn-sm" onclick="addQuirk()">Add</button>
         </div>
-        <textarea class="notes-area" id="notesArea" placeholder="Notes about this person..." oninput="saveNotesDebounced(this.value)">${escHtml(m.notes || '')}</textarea>
       </div>
-    `;
+
+      <div class="detail-section">
+        <div class="section-label">Notes</div>
+        <textarea class="notes-area" id="notesArea" placeholder="Write anything about this person..." oninput="saveNotesDebounced(this.value)">${escHtml(m.notes || '')}</textarea>
+      </div>`;
   }
 
-  panel.innerHTML = `
+  document.getElementById('memberPanel').innerHTML = `
     <div class="panel">
-      <div class="panel-header">
-        <div class="panel-title">
-          ${s.icon
-            ? `<img src="https://cdn.discordapp.com/icons/${activeServer}/${s.icon}.png?size=32" style="width:32px;height:32px;border-radius:8px;object-fit:cover" alt="">`
-            : `<div style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">${escHtml(s.name.charAt(0))}</div>`
-          }
-          ${escHtml(s.name)}
-          <span class="badge">${members.length}</span>
-        </div>
-        <div class="panel-toolbar">
-          <input class="search-input" placeholder="Search members..." value="${escHtml(searchVal)}" oninput="handleSearch(this.value)" />
+      <div class="panel-topbar">
+        <div class="panel-server-info">
+          ${iconHtml}
+          <span class="panel-server-name">${escHtml(s.name)}</span>
+          <span class="badge">${allMembers.length}</span>
         </div>
       </div>
-      <div class="member-list">
-        ${filtered.length === 0
-          ? `<div class="no-members">${searchVal ? 'No matches.' : 'No members loaded.'}</div>`
-          : filtered.map(m => {
-              const mid = m.id;
-              const displayName = m.name || m.username || 'Unknown';
-              const username = m.username || '';
-              const color = stringToColor(mid);
-              const avatarHtml = m.avatar
-                ? `<img src="https://cdn.discordapp.com/avatars/${mid}/${m.avatar}.png?size=64" alt="" onerror="this.outerHTML='<span>${escHtml(displayName.slice(0,2).toUpperCase())}</span>'">`
-                : `<span>${escHtml(displayName.slice(0,2).toUpperCase())}</span>`;
-              return `
-                <div class="member-row${activeMember === mid ? ' selected' : ''}" onclick="selectMember('${mid}')">
-                  <div class="member-avatar" style="background:${color}">${avatarHtml}</div>
-                  <div class="member-info">
-                    <div class="member-name">${escHtml(displayName)}</div>
-                    ${displayName !== username ? `<div class="member-username">@${escHtml(username)}</div>` : ''}
-                    <div class="quirks-preview">
-                      ${(m.quirks || []).map(q => `<span class="quirk-tag">${escHtml(q)}</span>`).join('')}
-                    </div>
-                  </div>
-                  <div class="member-row-actions">
-                    <button class="icon-btn danger" onclick="deleteMember(event,'${mid}')" title="Remove">
-                      <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                    </button>
-                  </div>
-                </div>
-              `;
-            }).join('')
-        }
+      <div class="panel-body">
+        <div class="member-sidebar">
+          <div class="sidebar-search-wrap">
+            <input class="sidebar-search" placeholder="Search by name or @username..." value="${escHtml(searchVal)}"
+              oninput="handleSearch(this.value)" spellcheck="false" autocomplete="off" />
+          </div>
+          <div class="member-list">${memberRows}</div>
+        </div>
+        <div class="member-detail">${detailHtml}</div>
       </div>
-      ${quirkHtml}
-    </div>
-  `;
+    </div>`;
+
+  // Restore focus on search if user was typing
+  if (searchVal) {
+    const el = document.querySelector('.sidebar-search');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
 }
 
-// ─── Actions ──────────────────────────────────────────────────────────────────
+// ── Actions ───────────────────────────────────────────────────────────────────
 function toggleServer(id) {
-  activeServer = activeServer === id ? null : id;
-  activeMember = null;
+  if (activeServer === id) { activeServer = null; activeMember = null; }
+  else { activeServer = id; activeMember = null; searchVal = ''; }
   render();
   if (activeServer) setTimeout(() => document.getElementById('memberPanel')?.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
 }
@@ -721,51 +795,63 @@ async function rescrapeServer(e, id) {
   if (!token) { toast('error', 'Connect your token first.'); return; }
   toast('info', 'Re-scraping...');
   try {
-    const res = await fetch(`${API}/api/scrape`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({token, guild_id: id})
+    // Use SSE for rescrape too
+    await new Promise((resolve, reject) => {
+      fetch(`${API}/api/scrape`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({token, guild_id: id})
+      }).then(res => {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        function read() {
+          reader.read().then(({done, value}) => {
+            if (done) { resolve(); return; }
+            buf += decoder.decode(value, {stream: true});
+            const lines = buf.split('\n'); buf = lines.pop();
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              try {
+                const evt = JSON.parse(line.slice(6));
+                if (evt.type === 'done') { toast('success', `Updated: ${evt.scraped} members`); resolve(evt); }
+                if (evt.type === 'error') reject(new Error(evt.detail));
+              } catch(e) {}
+            }
+            read();
+          }).catch(reject);
+        }
+        read();
+      }).catch(reject);
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail);
-    toast('success', `Updated: ${data.scraped} members`);
     await loadServers();
     if (activeServer === id) renderPanel();
-  } catch (e) { toast('error', e.message); }
+  } catch(e) { toast('error', e.message); }
 }
 
 async function deleteServer(e, id) {
   e.stopPropagation();
-  if (!confirm('Delete this server and all data?')) return;
+  if (!confirm('Delete this server and all its data?')) return;
   await fetch(`${API}/api/servers/${id}`, {method: 'DELETE'});
   delete servers[id];
   if (activeServer === id) { activeServer = null; activeMember = null; }
   render();
 }
 
-async function deleteMember(e, mid) {
+function deleteMember(e, mid) {
   e.stopPropagation();
-  // Optimistic remove
   delete servers[activeServer].members[mid];
   if (activeMember === mid) activeMember = null;
   renderPanel();
-  // Persist via patch with deletion flag — simplest approach: we just remove locally
-  // (for full persistence you'd add a DELETE endpoint for members)
 }
 
 function selectMember(mid) {
   activeMember = activeMember === mid ? null : mid;
   renderPanel();
-  if (activeMember) setTimeout(() => document.querySelector('.quirks-editor')?.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
 }
 
 function handleSearch(val) {
   searchVal = val;
   renderPanel();
-  setTimeout(() => {
-    const el = document.querySelector('.search-input');
-    if (el) { el.value = val; el.focus(); }
-  }, 5);
 }
 
 async function addQuirk() {
@@ -804,35 +890,29 @@ function saveNotesDebounced(val) {
 async function patchMember(mid, body) {
   try {
     await fetch(`${API}/api/servers/${activeServer}/members/${mid}`, {
-      method: 'PATCH',
-      headers: {'Content-Type': 'application/json'},
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(body)
     });
-  } catch (e) { toast('error', 'Failed to save.'); }
+  } catch(e) { toast('error', 'Failed to save.'); }
 }
 
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); }));
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-
 function stringToColor(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  const colors = ['#5865f2','#eb459e','#3ba55c','#faa81a','#9b59b6','#e67e22','#00b5d4','#e74c3c'];
-  return colors[Math.abs(hash) % colors.length];
+  return ['#5865f2','#eb459e','#3ba55c','#faa81a','#9b59b6','#e67e22','#00b5d4','#e74c3c'][Math.abs(hash) % 8];
 }
-
 function toast(type, msg) {
-  const container = document.getElementById('toastContainer');
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  const icons = {success: '✓', error: '✕', info: 'ℹ'};
-  el.innerHTML = `<span>${icons[type] || ''}</span> ${escHtml(msg)}`;
-  container.appendChild(el);
+  el.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ'}[type]||''}</span> ${escHtml(msg)}`;
+  document.getElementById('toastContainer').appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
 </script>
