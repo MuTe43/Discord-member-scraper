@@ -164,12 +164,33 @@ header {
 
 /* Left: member sidebar */
 .member-sidebar {
-  width: 260px;
+  width: 300px;
   flex-shrink: 0;
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   background: var(--surface);
+}
+
+/* Draggable resize divider */
+.sidebar-divider {
+  width: 8px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+  position: relative;
+}
+.sidebar-divider:hover, .sidebar-divider.dragging { background: var(--accent); }
+.sidebar-divider::after {
+  content: '';
+  width: 2px;
+  height: 36px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.25);
+  display: block;
 }
 .sidebar-search-wrap { padding: 12px; border-bottom: 1px solid var(--border); }
 .sidebar-search {
@@ -177,10 +198,10 @@ header {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 10px 14px;
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 13px;
   outline: none;
   transition: border-color 0.15s;
   direction: ltr;
@@ -197,14 +218,16 @@ header {
   flex-direction: column;
   gap: 2px;
 }
-.member-list::-webkit-scrollbar { width: 3px; }
-.member-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.member-list::-webkit-scrollbar { width: 8px; }
+.member-list::-webkit-scrollbar-track { background: var(--surface2); }
+.member-list::-webkit-scrollbar-thumb { background: var(--border-hover); border-radius: 4px; border: 2px solid var(--surface2); }
+.member-list::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
 .member-row {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
   transition: background 0.1s; border: 1px solid transparent;
-  direction: ltr;
+  direction: ltr; min-height: 50px;
 }
 .member-row:hover { background: var(--surface2); }
 .member-row.active { background: var(--tag-bg); border-color: var(--accent); }
@@ -659,127 +682,128 @@ function renderServers() {
   });
 }
 
+// ── helpers to build HTML chunks ─────────────────────────────────────────────
+function buildMemberRows(filtered, q) {
+  if (filtered.length === 0)
+    return `<div class="no-members">${q ? 'No matches.' : 'No members.'}</div>`;
+  return filtered.map(m => {
+    const mid = m.id;
+    const displayName = m.name || m.username || 'Unknown';
+    const username = m.username || '';
+    const color = stringToColor(mid);
+    const avatarHtml = m.avatar
+      ? `<img src="https://cdn.discordapp.com/avatars/${mid}/${m.avatar}.png?size=64" alt="">`
+      : escHtml(displayName.slice(0,2).toUpperCase());
+    const quirksHtml = (m.quirks||[]).slice(0,4).map(()=>`<span class="quirk-dot"></span>`).join('');
+    return `
+      <div class="member-row${activeMember===mid?' active':''}" onclick="selectMember('${mid}')">
+        <div class="member-avatar" style="background:${color}">${avatarHtml}</div>
+        <div class="member-row-info">
+          <div class="member-row-name">${escHtml(displayName)}</div>
+          ${username && username!==displayName?`<div class="member-row-handle">@${escHtml(username)}</div>`:''}
+          ${quirksHtml?`<div class="member-row-quirks">${quirksHtml}</div>`:''}
+        </div>
+        <button class="icon-btn danger member-row-del" onclick="deleteMember(event,'${mid}')" title="Remove">
+          <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+function buildDetailHtml(s) {
+  if (!activeMember || !s.members[activeMember]) {
+    return `<div class="detail-empty">
+      <div class="detail-empty-icon">👈</div>
+      <div class="detail-empty-text">Select a member from the list<br>to view and edit their info</div>
+    </div>`;
+  }
+  const m = s.members[activeMember];
+  const displayName = m.name || m.username || 'Unknown';
+  const username = m.username || '';
+  const color = stringToColor(m.id);
+  const avatarHtml = m.avatar
+    ? `<img src="https://cdn.discordapp.com/avatars/${m.id}/${m.avatar}.png?size=128" alt="">`
+    : escHtml(displayName.slice(0,2).toUpperCase());
+  const joinedStr = m.joined_at
+    ? new Date(m.joined_at).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'})
+    : null;
+  const quirksHtml = (m.quirks||[]).map(q=>`
+    <span class="quirk-tag">${escHtml(q)}
+      <button onclick="removeQuirk(${JSON.stringify(q)})">✕</button>
+    </span>`).join('');
+  return `
+    <div class="detail-header">
+      <div class="detail-avatar" style="background:${color}">${avatarHtml}</div>
+      <div class="detail-name-block">
+        <div class="detail-name">${escHtml(displayName)}</div>
+        ${username?`<div class="detail-handle">@${escHtml(username)}</div>`:''}
+        ${joinedStr?`<div class="detail-joined">Joined ${joinedStr}</div>`:''}
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="section-label">Quirk Tags</div>
+      <div class="quirk-tags" id="quirkTagsList">
+        ${quirksHtml||`<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">No tags yet</span>`}
+      </div>
+      <div class="quirk-input-row">
+        <input class="quirk-input" id="quirkInput" placeholder="Add a tag (e.g. lurker, mod, funny)..." onkeydown="if(event.key==='Enter')addQuirk()" />
+        <button class="btn btn-primary btn-sm" onclick="addQuirk()">Add</button>
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="section-label">Notes</div>
+      <textarea class="notes-area" id="notesArea" placeholder="Write anything about this person..." oninput="saveNotesDebounced(this.value)">${escHtml(m.notes||'')}</textarea>
+    </div>`;
+}
+
 function renderPanel() {
   const s = servers[activeServer];
   if (!s) return;
   const allMembers = Object.values(s.members || {});
-
-  // Search: match display name OR @username
   const q = searchVal.toLowerCase().replace(/^@/, '');
   const filtered = q
-    ? allMembers.filter(m =>
-        (m.name || '').toLowerCase().includes(q) ||
-        (m.username || '').toLowerCase().includes(q)
-      )
+    ? allMembers.filter(m => (m.name||'').toLowerCase().includes(q) || (m.username||'').toLowerCase().includes(q))
     : allMembers;
 
-  const iconHtml = s.icon
-    ? `<img src="https://cdn.discordapp.com/icons/${activeServer}/${s.icon}.png?size=32" style="width:28px;height:28px;border-radius:8px;object-fit:cover" alt="">`
-    : `<div style="width:28px;height:28px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white">${escHtml(s.name.charAt(0))}</div>`;
+  const panelEl = document.getElementById('memberPanel');
 
-  // Build member sidebar rows
-  const memberRows = filtered.length === 0
-    ? `<div class="no-members">${q ? 'No matches.' : 'No members.'}</div>`
-    : filtered.map(m => {
-        const mid = m.id;
-        const displayName = m.name || m.username || 'Unknown';
-        const username = m.username || '';
-        const color = stringToColor(mid);
-        const avatarHtml = m.avatar
-          ? `<img src="https://cdn.discordapp.com/avatars/${mid}/${m.avatar}.png?size=64" alt="">`
-          : escHtml(displayName.slice(0, 2).toUpperCase());
-        const quirksHtml = (m.quirks || []).slice(0, 4).map(() => `<span class="quirk-dot"></span>`).join('');
-        return `
-          <div class="member-row${activeMember === mid ? ' active' : ''}" onclick="selectMember('${mid}')">
-            <div class="member-avatar" style="background:${color}">${avatarHtml}</div>
-            <div class="member-row-info">
-              <div class="member-row-name">${escHtml(displayName)}</div>
-              ${username && username !== displayName ? `<div class="member-row-handle">@${escHtml(username)}</div>` : ''}
-              ${quirksHtml ? `<div class="member-row-quirks">${quirksHtml}</div>` : ''}
-            </div>
-            <button class="icon-btn danger member-row-del" onclick="deleteMember(event,'${mid}')" title="Remove">
-              <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            </button>
-          </div>`;
-      }).join('');
-
-  // Build detail panel
-  let detailHtml;
-  if (!activeMember || !s.members[activeMember]) {
-    detailHtml = `
-      <div class="detail-empty">
-        <div class="detail-empty-icon">👈</div>
-        <div class="detail-empty-text">Select a member from the list<br>to view and edit their info</div>
-      </div>`;
-  } else {
-    const m = s.members[activeMember];
-    const displayName = m.name || m.username || 'Unknown';
-    const username = m.username || '';
-    const color = stringToColor(m.id);
-    const avatarHtml = m.avatar
-      ? `<img src="https://cdn.discordapp.com/avatars/${m.id}/${m.avatar}.png?size=128" alt="">`
-      : escHtml(displayName.slice(0, 2).toUpperCase());
-    const joinedStr = m.joined_at ? new Date(m.joined_at).toLocaleDateString('en-US', {year:'numeric',month:'short',day:'numeric'}) : null;
-
-    const quirksHtml = (m.quirks || []).map(q => `
-      <span class="quirk-tag">
-        ${escHtml(q)}
-        <button onclick="removeQuirk(${JSON.stringify(q)})">✕</button>
-      </span>`).join('');
-
-    detailHtml = `
-      <div class="detail-header">
-        <div class="detail-avatar" style="background:${color}">${avatarHtml}</div>
-        <div class="detail-name-block">
-          <div class="detail-name">${escHtml(displayName)}</div>
-          ${username ? `<div class="detail-handle">@${escHtml(username)}</div>` : ''}
-          ${joinedStr ? `<div class="detail-joined">Joined ${joinedStr}</div>` : ''}
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <div class="section-label">Quirk Tags</div>
-        <div class="quirk-tags" id="quirkTagsList">
-          ${quirksHtml || `<span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">No tags yet</span>`}
-        </div>
-        <div class="quirk-input-row">
-          <input class="quirk-input" id="quirkInput" placeholder="Add a tag (e.g. lurker, mod, funny)..." onkeydown="if(event.key==='Enter')addQuirk()" />
-          <button class="btn btn-primary btn-sm" onclick="addQuirk()">Add</button>
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <div class="section-label">Notes</div>
-        <textarea class="notes-area" id="notesArea" placeholder="Write anything about this person..." oninput="saveNotesDebounced(this.value)">${escHtml(m.notes || '')}</textarea>
-      </div>`;
-  }
-
-  document.getElementById('memberPanel').innerHTML = `
-    <div class="panel">
-      <div class="panel-topbar">
-        <div class="panel-server-info">
-          ${iconHtml}
-          <span class="panel-server-name">${escHtml(s.name)}</span>
-          <span class="badge">${allMembers.length}</span>
-        </div>
-      </div>
-      <div class="panel-body">
-        <div class="member-sidebar">
-          <div class="sidebar-search-wrap">
-            <input class="sidebar-search" placeholder="Search by name or @username..." value="${escHtml(searchVal)}"
-              oninput="handleSearch(this.value)" spellcheck="false" autocomplete="off" />
+  // ── First render: build full skeleton ────────────────────────────────────
+  if (!panelEl.querySelector('.panel')) {
+    const iconHtml = s.icon
+      ? `<img src="https://cdn.discordapp.com/icons/${activeServer}/${s.icon}.png?size=32" style="width:28px;height:28px;border-radius:8px;object-fit:cover" alt="">`
+      : `<div style="width:28px;height:28px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:white">${escHtml(s.name.charAt(0))}</div>`;
+    panelEl.innerHTML = `
+      <div class="panel">
+        <div class="panel-topbar">
+          <div class="panel-server-info">
+            ${iconHtml}
+            <span class="panel-server-name">${escHtml(s.name)}</span>
+            <span class="badge" id="memberBadge">${allMembers.length}</span>
           </div>
-          <div class="member-list">${memberRows}</div>
         </div>
-        <div class="member-detail">${detailHtml}</div>
-      </div>
-    </div>`;
-
-  // Restore focus on search if user was typing
-  if (searchVal) {
-    const el = document.querySelector('.sidebar-search');
-    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+        <div class="panel-body">
+          <div class="member-sidebar">
+            <div class="sidebar-search-wrap">
+              <input class="sidebar-search" id="sidebarSearch"
+                placeholder="Search by name or @username..."
+                oninput="handleSearch(this.value)"
+                spellcheck="false" autocomplete="off" />
+            </div>
+            <div class="member-list" id="memberList"></div>
+          </div>
+          <div class="sidebar-divider" id="sidebarDivider"></div>
+          <div class="member-detail" id="memberDetail"></div>
+        </div>
+      </div>`;
   }
+
+  // ── Always patch only list + detail — never touch the input ──────────────
+  const listEl = document.getElementById('memberList');
+  const detailEl = document.getElementById('memberDetail');
+  const badgeEl = document.getElementById('memberBadge');
+  if (listEl) listEl.innerHTML = buildMemberRows(filtered, q);
+  if (detailEl) detailEl.innerHTML = buildDetailHtml(s);
+  if (badgeEl) badgeEl.textContent = allMembers.length;
 }
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -851,7 +875,15 @@ function selectMember(mid) {
 
 function handleSearch(val) {
   searchVal = val;
-  renderPanel();
+  const s = servers[activeServer];
+  if (!s) return;
+  const allMembers = Object.values(s.members || {});
+  const q = val.toLowerCase().replace(/^@/, '');
+  const filtered = q
+    ? allMembers.filter(m => (m.name||'').toLowerCase().includes(q) || (m.username||'').toLowerCase().includes(q))
+    : allMembers;
+  const listEl = document.getElementById('memberList');
+  if (listEl) listEl.innerHTML = buildMemberRows(filtered, q);
 }
 
 async function addQuirk() {
@@ -915,6 +947,30 @@ function toast(type, msg) {
   document.getElementById('toastContainer').appendChild(el);
   setTimeout(() => el.remove(), 3500);
 }
+
+// ── Sidebar resize ────────────────────────────────────────────────────────────
+document.addEventListener('mousedown', e => {
+  const divider = e.target.closest('#sidebarDivider');
+  if (!divider) return;
+  e.preventDefault();
+  divider.classList.add('dragging');
+  const sidebar = document.querySelector('.member-sidebar');
+  const startX = e.clientX;
+  const startW = sidebar ? sidebar.offsetWidth : 300;
+
+  function onMove(e) {
+    if (!sidebar) return;
+    const newW = Math.max(200, Math.min(500, startW + e.clientX - startX));
+    sidebar.style.width = newW + 'px';
+  }
+  function onUp() {
+    divider.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+});
 </script>
 </body>
 </html>
