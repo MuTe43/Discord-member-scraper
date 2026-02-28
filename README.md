@@ -5,8 +5,8 @@ Discord member tracker with a real backend scraper.
 ## Setup
 
 ```bash
-cd backend
 pip install -r requirements.txt
+cd backend
 python main.py
 ```
 
