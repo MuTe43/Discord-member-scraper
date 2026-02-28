@@ -511,7 +511,84 @@ async def scrape_gateway(token: str, guild_id: str, progress_q: asyncio.Queue) -
         if i < len(all_ranges) - 1:
             await asyncio.sleep(0.35)
 
-    await emit(f"Scrape complete — {len(members)} members collected ✓")
+    after_ranges = len(members)
+    await emit(f"Range sweep done — {after_ranges}/{total_members} members. Running search sweep for stragglers...")
+
+    # ── Step 3: alphabet search sweep via op 8 ────────────────────────────────
+    # op 14 only returns members visible in the role-sorted sidebar.
+    # Offline members with no hoisted role are invisible to op 14.
+    # op 8 with a query string searches ALL members regardless of online status.
+    # We sweep a-z + 0-9 to catch everyone missed by the range sweep.
+    # Each query returns up to 100 results — good enough for name prefix coverage.
+
+    SWEEP_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
+    nonce_base = str(int(time.time() * 1000))
+    swept = 0
+
+    for idx, char in enumerate(SWEEP_CHARS):
+        nonce = f"{nonce_base}_{char}"
+        await gs.send({
+            "op": 8,
+            "d": {
+                "guild_id": guild_id,
+                "query": char,
+                "limit": 100,
+                "presences": False,
+                "nonce": nonce,
+            }
+        })
+
+        # Collect GUILD_MEMBERS_CHUNK for this query
+        chunk_deadline = time.monotonic() + 8
+        got_chunk = False
+        while not got_chunk:
+            if time.monotonic() > chunk_deadline:
+                break  # op 8 might be blocked for this server, just move on
+            try:
+                msg = await gs.recv(timeout=5)
+            except asyncio.TimeoutError:
+                break
+            except ConnectionError:
+                break
+
+            if msg.get("t") != "GUILD_MEMBERS_CHUNK":
+                continue
+            d = msg["d"]
+            if str(d.get("guild_id")) != str(guild_id):
+                continue
+            # Accept chunks with our nonce OR no nonce (some servers omit it)
+            chunk_nonce = d.get("nonce", nonce)
+            if chunk_nonce != nonce and chunk_nonce != "":
+                continue
+
+            for m in d.get("members", []):
+                user = m.get("user", {})
+                if user.get("bot"): continue
+                uid = user.get("id")
+                if uid and uid not in members:
+                    members[uid] = {
+                        "id": uid,
+                        "name": m.get("nick") or user.get("global_name") or user.get("username"),
+                        "username": user.get("username"),
+                        "avatar": user.get("avatar"),
+                        "joined_at": m.get("joined_at"),
+                        "roles": m.get("roles", []),
+                        "quirks": [], "notes": "",
+                    }
+                    swept += 1
+
+            got_chunk = True
+
+        # Stop early if we've found everyone
+        if len(members) >= total_members:
+            break
+
+        await asyncio.sleep(0.3)
+
+    if swept > 0:
+        await emit(f"Search sweep found {swept} additional members.")
+
+    await emit(f"Done — {len(members)}/{total_members} members collected ✓")
     return list(members.values())
 
 
