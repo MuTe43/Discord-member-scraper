@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Server Lens</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0f13;
+    --surface: #16181f;
+    --surface2: #1e2029;
+    --border: #2a2d3a;
+    --border-hover: #3d4157;
+    --accent: #5865f2;
+    --accent-glow: rgba(88,101,242,0.2);
+    --accent2: #eb459e;
+    --text: #e3e5e8;
+    --muted: #72767d;
+    --online: #3ba55c;
+    --tag-bg: #1a1d2e;
+    --danger: #ed4245;
+    --warning: #faa81a;
+  }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(88,101,242,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,101,242,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 40px; gap: 16px; flex-wrap: wrap;
+  }
+  .logo-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 3px; text-transform: uppercase; }
+  .logo h1 {
+    font-size: 36px; font-weight: 800; letter-spacing: -1px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  /* Token bar */
+  .token-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .token-bar label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+  .token-input-wrap { flex: 1; position: relative; min-width: 200px; }
+  .token-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 36px 9px 12px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+    letter-spacing: 1px;
+  }
+  .token-input:focus { border-color: var(--accent); }
+  .token-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 2px;
+  }
+  .token-toggle:hover { color: var(--text); }
+  .user-chip {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--online);
+    border-radius: 100px; padding: 4px 12px 4px 4px;
+  }
+  .user-chip-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .user-chip-name { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--online); }
+  .token-status { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+  .token-status.error { color: var(--danger); }
+  .token-status.ok { color: var(--online); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 600; transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+  .btn-primary { background: var(--accent); color: white; box-shadow: 0 0 20px var(--accent-glow); }
+  .btn-primary:not(:disabled):hover { background: #6875f5; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:not(:disabled):hover { border-color: var(--border-hover); color: var(--text); }
+  .btn-sm { padding: 7px 14px; font-size: 13px; }
+  .btn-xs { padding: 4px 10px; font-size: 12px; }
+  .icon-btn {
+    width: 28px; height: 28px; border-radius: 6px; border: none;
+    background: transparent; color: var(--muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .icon-btn:hover { background: var(--surface2); color: var(--text); }
+  .icon-btn.danger:hover { background: rgba(237,66,69,0.15); color: var(--danger); }
+
+  /* Scrape modal trigger row */
+  .action-row { display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap; align-items: center; }
+  .action-row .hint { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  /* Servers grid */
+  .servers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .server-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; cursor: pointer; transition: all 0.2s; position: relative;
+  }
+  .server-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2)); opacity: 0; transition: opacity 0.2s;
+  }
+  .server-card:hover { border-color: var(--border-hover); transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+  .server-card:hover::before, .server-card.active::before { opacity: 1; }
+  .server-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 8px 32px var(--accent-glow); }
+  .card-header { padding: 18px 20px; display: flex; align-items: center; gap: 14px; }
+  .server-icon {
+    width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .server-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .server-icon-text { font-size: 18px; font-weight: 800; color: white; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .card-info { flex: 1; min-width: 0; }
+  .card-name { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-meta { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .card-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .rescrape-btn { opacity: 0; transition: opacity 0.15s; }
+  .server-card:hover .rescrape-btn { opacity: 1; }
+
+  .empty-state { grid-column: 1 / -1; text-align: center; padding: 80px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-state p { font-size: 15px; }
+  .empty-state p span { color: var(--accent); }
+
+  /* Panel */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; animation: slideUp 0.2s ease; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .panel-header {
+    padding: 18px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  }
+  .panel-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .badge {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 3px 8px; border-radius: 100px; color: var(--muted);
+  }
+  .panel-toolbar { display: flex; gap: 8px; align-items: center; }
+  .search-input {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 14px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; width: 220px; transition: border-color 0.15s; outline: none;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--muted); }
+
+  /* Member list */
+  .member-list { padding: 10px; display: flex; flex-direction: column; gap: 3px; max-height: 480px; overflow-y: auto; }
+  .member-list::-webkit-scrollbar { width: 4px; }
+  .member-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .member-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    transition: background 0.1s; border: 1px solid transparent;
+  }
+  .member-row:hover { background: var(--surface2); }
+  .member-row.selected { background: var(--tag-bg); border-color: var(--accent); }
+  .member-avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: white; overflow: hidden;
+  }
+  .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .member-info { flex: 1; min-width: 0; }
+  .member-name { font-size: 14px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .member-username { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 1px; }
+  .quirks-preview { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+  .quirk-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; background: var(--tag-bg); border: 1px solid var(--border); color: var(--accent); padding: 2px 7px; border-radius: 4px; }
+  .member-row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.1s; }
+  .member-row:hover .member-row-actions { opacity: 1; }
+
+  /* Quirks editor */
+  .quirks-editor { border-top: 1px solid var(--border); padding: 20px 24px; animation: slideUp 0.15s ease; }
+  .quirks-editor-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .quirks-editor-title { font-size: 13px; font-weight: 600; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+  .quirks-editor-title span { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+  .quirk-tags-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 28px; }
+  .quirk-tag-editable {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    background: var(--tag-bg); border: 1px solid var(--border);
+    color: var(--text); padding: 4px 10px; border-radius: 6px; transition: border-color 0.1s;
+  }
+  .quirk-tag-editable:hover { border-color: var(--border-hover); }
+  .quirk-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 11px; padding: 0; transition: color 0.1s; }
+  .quirk-remove:hover { color: var(--danger); }
+  .quirk-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .quirk-input {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; outline: none; transition: border-color 0.15s;
+  }
+  .quirk-input:focus { border-color: var(--accent); }
+  .quirk-input::placeholder { color: var(--muted); }
+  .notes-area {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; resize: vertical; min-height: 80px; outline: none; transition: border-color 0.15s;
+  }
+  .notes-area:focus { border-color: var(--accent); }
+  .notes-area::placeholder { color: var(--muted); }
+
+  /* Modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 32px; width: 100%; max-width: 500px; animation: slideUp 0.2s ease; max-height: 90vh; overflow-y: auto; }
+  .modal h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .modal-subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; line-height: 1.5; }
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+
+  /* Guild picker */
+  .guild-list { display: flex; flex-direction: column; gap: 6px; max-height: 350px; overflow-y: auto; margin-bottom: 8px; }
+  .guild-list::-webkit-scrollbar { width: 4px; }
+  .guild-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .guild-item {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.1s;
+  }
+  .guild-item:hover { background: var(--surface2); border-color: var(--border); }
+  .guild-item.selected { background: var(--tag-bg); border-color: var(--accent); }
+  .guild-item-icon { width: 36px; height: 36px; border-radius: 10px; overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface2); font-size: 16px; }
+  .guild-item-icon img { width: 100%; height: 100%; object-fit: cover; }
+  .guild-item-name { font-size: 14px; font-weight: 600; }
+  .guild-item-id { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+  .guild-item-check { margin-left: auto; color: var(--accent); font-size: 16px; opacity: 0; transition: opacity 0.1s; }
+  .guild-item.selected .guild-item-check { opacity: 1; }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Toast */
+  .toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 18px; font-size: 13px; font-family: 'JetBrains Mono', monospace;
+    animation: toastIn 0.2s ease; max-width: 320px; display: flex; align-items: center; gap: 10px;
+  }
+  .toast.success { border-color: var(--online); }
+  .toast.error { border-color: var(--danger); }
+  .toast.info { border-color: var(--accent); }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+
+  .no-members { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+  .hidden { display: none !important; }
+  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-eyebrow">// member tracker</div>
+      <h1>Server Lens</h1>
+    </div>
+  </header>
+
+  <!-- Token bar -->
+  <div class="token-bar">
+    <label>User Token</label>
+    <div class="token-input-wrap">
+      <input type="password" class="token-input" id="tokenInput" placeholder="Paste your Discord user token..." />
+      <button class="token-toggle" onclick="toggleTokenVisibility()" id="tokenToggle">👁</button>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="validateToken()" id="validateBtn">Connect</button>
+    <div id="tokenStatus" class="token-status"></div>
+    <div id="userChip" class="hidden"></div>
+  </div>
+
+  <!-- Action row -->
+  <div class="action-row">
+    <button class="btn btn-primary" onclick="openScrapeModal()" id="scrapeBtn" disabled>
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Scrape Server
+    </button>
+    <span class="hint">Connect your token first, then pick a server to scrape.</span>
+  </div>
+
+  <!-- Servers grid -->
+  <div class="servers-grid" id="serversGrid">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🔭</div>
+      <p>No servers scraped yet. Connect your token and click <span>Scrape Server</span>.</p>
+    </div>
+  </div>
+
+  <!-- Member panel -->
+  <div id="memberPanel" class="hidden"></div>
+</div>
+
+<!-- Scrape modal (guild picker) -->
+<div class="modal-overlay hidden" id="scrapeModal">
+  <div class="modal">
+    <h2>Scrape a Server</h2>
+    <p class="modal-subtitle">Pick one of your servers below, or enter a guild ID manually. Bots will be filtered out automatically.</p>
+
+    <div id="guildPickerSection">
+      <div class="form-group">
+        <label class="form-label">Your Servers</label>
+        <div class="guild-list" id="guildList">
+          <div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">Loading your servers...</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label">Or enter Guild ID manually</label>
+        <input class="token-input" id="manualGuildId" placeholder="e.g. 1234567890123456789" style="width:100%" />
+      </div>
+    </div>
+
+    <div id="scrapeProgress" class="hidden" style="padding:20px">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:16px;min-height:80px;display:flex;flex-direction:column;gap:6px">
+        <div style="display:flex;align-items:center;gap:10px;color:var(--muted);margin-bottom:4px">
+          <div class="spinner" style="width:12px;height:12px;border-width:2px"></div>
+          <span style="font-size:11px;text-transform:uppercase;letter-spacing:1px">Gateway log</span>
+        </div>
+        <div id="scrapeProgressText" style="color:var(--text);line-height:1.6"></div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('scrapeModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="startScrape()" id="startScrapeBtn">Scrape</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = 'http://localhost:8000';
+let token = localStorage.getItem('sl_token') || '';
+let validatedUser = null;
+let userGuilds = [];
+let selectedGuildId = null;
+let servers = {};
+let activeServer = null;
+let activeMember = null;
+let searchVal = '';
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+window.onload = async () => {
+  if (token) {
+    document.getElementById('tokenInput').value = token;
+    await validateToken(true);
+  }
+  await loadServers();
+};
+
+// ─── Token ────────────────────────────────────────────────────────────────────
+function toggleTokenVisibility() {
+  const input = document.getElementById('tokenInput');
+  const btn = document.getElementById('tokenToggle');
+  input.type = input.type === 'password' ? 'text' : 'password';
+  btn.textContent = input.type === 'password' ? '👁' : '🔒';
+}
+
+async function validateToken(silent = false) {
+  const input = document.getElementById('tokenInput');
+  token = input.value.trim();
+  if (!token) { showStatus('error', 'Paste a token first.'); return; }
+
+  const btn = document.getElementById('validateBtn');
+  btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true;
+
+  try {
+    const res = await fetch(`${API}/api/validate-token`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Invalid token');
+
+    validatedUser = data.user;
+    userGuilds = data.guilds;
+    localStorage.setItem('sl_token', token);
+
+    const name = data.user.global_name || data.user.username;
+    const initials = name.slice(0,2).toUpperCase();
+    document.getElementById('userChip').className = 'user-chip';
+    document.getElementById('userChip').innerHTML = `
+      <div class="user-chip-avatar">${initials}</div>
+      <div class="user-chip-name">${escHtml(name)}</div>
+    `;
+    document.getElementById('tokenStatus').className = 'token-status ok';
+    document.getElementById('tokenStatus').textContent = '✓ connected';
+    document.getElementById('scrapeBtn').disabled = false;
+
+    if (!silent) toast('success', `Connected as ${name}`);
+  } catch (e) {
+    showStatus('error', e.message);
+    document.getElementById('userChip').className = 'hidden';
+    document.getElementById('scrapeBtn').disabled = true;
+    validatedUser = null;
+    if (!silent) toast('error', e.message);
+  } finally {
+    btn.innerHTML = 'Connect';
+    btn.disabled = false;
+  }
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('tokenStatus');
+  el.className = `token-status ${type}`;
+  el.textContent = msg;
+}
+
+// ─── Load servers from backend ───────────────────────────────────────────────
+async function loadServers() {
+  try {
+    const res = await fetch(`${API}/api/servers`);
+    servers = await res.json();
+    render();
+  } catch (e) {
+    toast('error', 'Cannot reach backend. Is it running?');
+  }
+}
+
+// ─── Scrape Modal ─────────────────────────────────────────────────────────────
+function openScrapeModal() {
+  selectedGuildId = null;
+  document.getElementById('manualGuildId').value = '';
+  document.getElementById('scrapeProgress').classList.add('hidden');
+  document.getElementById('guildPickerSection').classList.remove('hidden');
+  document.getElementById('startScrapeBtn').disabled = false;
+  document.getElementById('startScrapeBtn').innerHTML = 'Scrape';
+
+  // Render guild list
+  const list = document.getElementById('guildList');
+  if (userGuilds.length === 0) {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px;">No servers found.</div>';
+  } else {
+    list.innerHTML = userGuilds.map(g => {
+      const iconUrl = g.icon ? `https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=64` : null;
+      const iconHtml = iconUrl
+        ? `<img src="${iconUrl}" alt="" onerror="this.style.display='none'">`
+        : `<span>${g.name.charAt(0)}</span>`;
+      const alreadyScraped = servers[g.id] ? ' <span style="color:var(--muted);font-size:10px">(scraped)</span>' : '';
+      return `
+        <div class="guild-item" onclick="selectGuild('${g.id}')" id="guild_${g.id}">
+          <div class="guild-item-icon">${iconHtml}</div>
+          <div>
+            <div class="guild-item-name">${escHtml(g.name)}${alreadyScraped}</div>
+            <div class="guild-item-id">${g.id}</div>
+          </div>
+          <div class="guild-item-check">✓</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('scrapeModal').classList.remove('hidden');
+}
+
+function selectGuild(id) {
+  document.querySelectorAll('.guild-item').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById(`guild_${id}`);
+  if (el) el.classList.add('selected');
+  selectedGuildId = id;
+  document.getElementById('manualGuildId').value = '';
+}
+
+async function startScrape() {
+  const guildId = selectedGuildId || document.getElementById('manualGuildId').value.trim();
+  if (!guildId) { toast('error', 'Select a server or enter a Guild ID.'); return; }
+
+  document.getElementById('guildPickerSection').classList.add('hidden');
+  document.getElementById('scrapeProgress').classList.remove('hidden');
+  document.getElementById('startScrapeBtn').disabled = true;
+
+  const logEl = document.getElementById('scrapeProgressText');
+  const appendLog = line => {
+    logEl.textContent = line;  // show latest line
+  };
+
+  appendLog('Starting...');
+
+  try {
+    await new Promise((resolve, reject) => {
+      // Use fetch + ReadableStream to consume SSE
+      fetch(`${API}/api/scrape`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({token, guild_id: guildId})
+      }).then(res => {
+        if (!res.ok) return res.json().then(d => reject(new Error(d.detail || 'Scrape failed')));
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+
+        function read() {
+          reader.read().then(({done, value}) => {
+            if (done) { resolve(); return; }
+            buf += decoder.decode(value, {stream: true});
+            const lines = buf.split('\n');
+            buf = lines.pop(); // incomplete last line
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              try {
+                const evt = JSON.parse(line.slice(6));
+                if (evt.type === 'progress') {
+                  appendLog(evt.text);
+                } else if (evt.type === 'done') {
+                  appendLog(`✓ ${evt.scraped} members scraped`);
+                  resolve(evt);
+                } else if (evt.type === 'error') {
+                  reject(new Error(evt.detail));
+                }
+              } catch(e) {}
+            }
+            read();
+          }).catch(reject);
+        }
+        read();
+      }).catch(reject);
+    }).then(async (evt) => {
+      if (!evt) return;
+      toast('success', `Scraped ${evt.scraped} members from ${evt.name}`);
+      closeModal('scrapeModal');
+      await loadServers();
+      activeServer = guildId;
+      activeMember = null;
+      render();
+      setTimeout(() => document.getElementById('memberPanel')?.scrollIntoView({behavior:'smooth', block:'nearest'}), 100);
+    });
+  } catch (e) {
+    toast('error', e.message);
+    document.getElementById('guildPickerSection').classList.remove('hidden');
+    document.getElementById('scrapeProgress').classList.add('hidden');
+    document.getElementById('startScrapeBtn').disabled = false;
+    document.getElementById('startScrapeBtn').innerHTML = 'Scrape';
+  }
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  renderServers();
+  if (activeServer) renderPanel();
+  else document.getElementById('memberPanel').classList.add('hidden');
+}
+
+function renderServers() {
+  const grid = document.getElementById('serversGrid');
+  const ids = Object.keys(servers);
+  document.getElementById('emptyState').classList.toggle('hidden', ids.length > 0);
+  grid.querySelectorAll('.server-card').forEach(e => e.remove());
+
+  ids.forEach(id => {
+    const s = servers[id];
+    const iconHtml = s.icon
+      ? `<img src="https://cdn.discordapp.com/icons/${id}/${s.icon}.png?size=64" alt="" onerror="this.outerHTML='<div class=server-icon-text>${escHtml(s.name.charAt(0))}</div>'">`
+      : `<div class="server-icon-text">${escHtml(s.name.charAt(0))}</div>`;
+    const memberCount = s.member_count ?? Object.keys(s.members || {}).length;
+
+    const card = document.createElement('div');
+    card.className = 'server-card' + (activeServer === id ? ' active' : '');
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="server-icon">${iconHtml}</div>
+        <div class="card-info">
+          <div class="card-name">${escHtml(s.name)}</div>
+          <div class="card-meta">${memberCount} member${memberCount !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="card-actions">
+          <button class="icon-btn rescrape-btn" title="Re-scrape" onclick="rescrapeServer(event,'${id}')">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          </button>
+          <button class="icon-btn danger" title="Delete" onclick="deleteServer(event,'${id}')">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+    card.addEventListener('click', () => toggleServer(id));
+    grid.appendChild(card);
+  });
+}
+
+function renderPanel() {
+  const panel = document.getElementById('memberPanel');
+  const s = servers[activeServer];
+  if (!s) { panel.classList.add('hidden'); return; }
+  panel.classList.remove('hidden');
+
+  const members = Object.values(s.members || {});
+  const filtered = searchVal
+    ? members.filter(m => (m.name || m.username || '').toLowerCase().includes(searchVal.toLowerCase()))
+    : members;
+
+  // Quirks editor
+  let quirkHtml = '';
+  if (activeMember && s.members[activeMember]) {
+    const m = s.members[activeMember];
+    const displayName = m.name || m.username;
+    quirkHtml = `
+      <div class="quirks-editor">
+        <div class="quirks-editor-header">
+          <div class="quirks-editor-title">Editing <span>${escHtml(displayName)}</span></div>
+          <button class="icon-btn" onclick="activeMember=null;renderPanel()">
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="quirk-tags-list">
+          ${(m.quirks || []).map(q => `
+            <div class="quirk-tag-editable">${escHtml(q)}
+              <button class="quirk-remove" onclick="removeQuirk(${JSON.stringify(q)})">✕</button>
+            </div>
+          `).join('')}
+        </div>
+        <div class="quirk-input-row">
+          <input class="quirk-input" id="quirkInput" placeholder="Add quirk tag (e.g. lurker, toxic, funny)..." onkeydown="if(event.key==='Enter')addQuirk()" />
+          <button class="btn btn-primary btn-sm" onclick="addQuirk()">Add</button>
+        </div>
+        <textarea class="notes-area" id="notesArea" placeholder="Notes about this person..." oninput="saveNotesDebounced(this.value)">${escHtml(m.notes || '')}</textarea>
+      </div>
+    `;
+  }
+
+  panel.innerHTML = `
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          ${s.icon
+            ? `<img src="https://cdn.discordapp.com/icons/${activeServer}/${s.icon}.png?size=32" style="width:32px;height:32px;border-radius:8px;object-fit:cover" alt="">`
+            : `<div style="width:32px;height:32px;border-radius:8px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800">${escHtml(s.name.charAt(0))}</div>`
+          }
+          ${escHtml(s.name)}
+          <span class="badge">${members.length}</span>
+        </div>
+        <div class="panel-toolbar">
+          <input class="search-input" placeholder="Search members..." value="${escHtml(searchVal)}" oninput="handleSearch(this.value)" />
+        </div>
+      </div>
+      <div class="member-list">
+        ${filtered.length === 0
+          ? `<div class="no-members">${searchVal ? 'No matches.' : 'No members loaded.'}</div>`
+          : filtered.map(m => {
+              const mid = m.id;
+              const displayName = m.name || m.username || 'Unknown';
+              const username = m.username || '';
+              const color = stringToColor(mid);
+              const avatarHtml = m.avatar
+                ? `<img src="https://cdn.discordapp.com/avatars/${mid}/${m.avatar}.png?size=64" alt="" onerror="this.outerHTML='<span>${escHtml(displayName.slice(0,2).toUpperCase())}</span>'">`
+                : `<span>${escHtml(displayName.slice(0,2).toUpperCase())}</span>`;
+              return `
+                <div class="member-row${activeMember === mid ? ' selected' : ''}" onclick="selectMember('${mid}')">
+                  <div class="member-avatar" style="background:${color}">${avatarHtml}</div>
+                  <div class="member-info">
+                    <div class="member-name">${escHtml(displayName)}</div>
+                    ${displayName !== username ? `<div class="member-username">@${escHtml(username)}</div>` : ''}
+                    <div class="quirks-preview">
+                      ${(m.quirks || []).map(q => `<span class="quirk-tag">${escHtml(q)}</span>`).join('')}
+                    </div>
+                  </div>
+                  <div class="member-row-actions">
+                    <button class="icon-btn danger" onclick="deleteMember(event,'${mid}')" title="Remove">
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join('')
+        }
+      </div>
+      ${quirkHtml}
+    </div>
+  `;
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+function toggleServer(id) {
+  activeServer = activeServer === id ? null : id;
+  activeMember = null;
+  render();
+  if (activeServer) setTimeout(() => document.getElementById('memberPanel')?.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
+}
+
+async function rescrapeServer(e, id) {
+  e.stopPropagation();
+  if (!token) { toast('error', 'Connect your token first.'); return; }
+  toast('info', 'Re-scraping...');
+  try {
+    const res = await fetch(`${API}/api/scrape`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({token, guild_id: id})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail);
+    toast('success', `Updated: ${data.scraped} members`);
+    await loadServers();
+    if (activeServer === id) renderPanel();
+  } catch (e) { toast('error', e.message); }
+}
+
+async function deleteServer(e, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this server and all data?')) return;
+  await fetch(`${API}/api/servers/${id}`, {method: 'DELETE'});
+  delete servers[id];
+  if (activeServer === id) { activeServer = null; activeMember = null; }
+  render();
+}
+
+async function deleteMember(e, mid) {
+  e.stopPropagation();
+  // Optimistic remove
+  delete servers[activeServer].members[mid];
+  if (activeMember === mid) activeMember = null;
+  renderPanel();
+  // Persist via patch with deletion flag — simplest approach: we just remove locally
+  // (for full persistence you'd add a DELETE endpoint for members)
+}
+
+function selectMember(mid) {
+  activeMember = activeMember === mid ? null : mid;
+  renderPanel();
+  if (activeMember) setTimeout(() => document.querySelector('.quirks-editor')?.scrollIntoView({behavior:'smooth', block:'nearest'}), 50);
+}
+
+function handleSearch(val) {
+  searchVal = val;
+  renderPanel();
+  setTimeout(() => {
+    const el = document.querySelector('.search-input');
+    if (el) { el.value = val; el.focus(); }
+  }, 5);
+}
+
+async function addQuirk() {
+  const input = document.getElementById('quirkInput');
+  const val = input.value.trim();
+  if (!val || !activeMember) return;
+  const m = servers[activeServer]?.members[activeMember];
+  if (!m) return;
+  if (!m.quirks) m.quirks = [];
+  if (!m.quirks.includes(val)) {
+    m.quirks.push(val);
+    await patchMember(activeMember, {quirks: m.quirks});
+  }
+  input.value = '';
+  renderPanel();
+  setTimeout(() => document.getElementById('quirkInput')?.focus(), 10);
+}
+
+async function removeQuirk(q) {
+  const m = servers[activeServer]?.members[activeMember];
+  if (!m) return;
+  m.quirks = (m.quirks || []).filter(x => x !== q);
+  await patchMember(activeMember, {quirks: m.quirks});
+  renderPanel();
+}
+
+let notesTimer = null;
+function saveNotesDebounced(val) {
+  const m = servers[activeServer]?.members[activeMember];
+  if (!m) return;
+  m.notes = val;
+  clearTimeout(notesTimer);
+  notesTimer = setTimeout(() => patchMember(activeMember, {notes: val}), 600);
+}
+
+async function patchMember(mid, body) {
+  try {
+    await fetch(`${API}/api/servers/${activeServer}/members/${mid}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+  } catch (e) { toast('error', 'Failed to save.'); }
+}
+
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); }));
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function stringToColor(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  const colors = ['#5865f2','#eb459e','#3ba55c','#faa81a','#9b59b6','#e67e22','#00b5d4','#e74c3c'];
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function toast(type, msg) {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = {success: '✓', error: '✕', info: 'ℹ'};
+  el.innerHTML = `<span>${icons[type] || ''}</span> ${escHtml(msg)}`;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+</script>
+</body>
+</html>
