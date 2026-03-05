@@ -6,6 +6,9 @@ build/
 .venv/
 venv/
 .DS_Store
+.git/
+.github/
 data.json
-CLAUDE.md
-.claude/
+debug_gateway.py
+*.md
+LICENSE

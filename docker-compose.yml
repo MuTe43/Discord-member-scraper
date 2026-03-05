@@ -1,0 +1,8 @@
+services:
+  server-lens:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data.json:/app/backend/data.json
+    restart: unless-stopped
