@@ -16,7 +16,7 @@ jobs:
           python-version: "3.11"
       - run: pip install -r requirements.txt
       - name: Check imports
-        run: python -c "from backend.models import *; from backend.gateway import *; from backend.scraper import _parse_member"
+        run: cd backend && python -c "from models import *; from gateway import *; from scraper import _parse_member"
 
   docker:
     runs-on: ubuntu-latest
