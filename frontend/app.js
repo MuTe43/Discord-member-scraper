@@ -204,10 +204,10 @@ function renderServers() {
           <div class="card-meta">${count} member${count !== 1 ? 's' : ''}</div>
         </div>
         <div class="card-actions">
-          <button class="icon-btn rescrape-btn" title="Re-scrape" onclick="rescrapeServer(event,'${id}')">
+          <button class="icon-btn rescrape-btn" title="Re-scrape" aria-label="Re-scrape server" onclick="rescrapeServer(event,'${id}')">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           </button>
-          <button class="icon-btn danger" title="Delete" onclick="deleteServer(event,'${id}')">
+          <button class="icon-btn danger" title="Delete" aria-label="Delete server" onclick="deleteServer(event,'${id}')">
             <svg width="11" height="11" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
         </div>
@@ -312,7 +312,7 @@ function buildMemberRows(filtered, q) {
           ${username && username !== displayName ? `<div class="member-row-handle">@${escHtml(username)}</div>` : ''}
           ${quirksHtml ? `<div class="member-row-quirks">${quirksHtml}</div>` : ''}
         </div>
-        <button class="icon-btn danger member-row-del" onclick="deleteMember(event,'${mid}')" title="Remove">
+        <button class="icon-btn danger member-row-del" onclick="deleteMember(event,'${mid}')" title="Remove" aria-label="Remove member">
           <svg width="10" height="10" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </button>
       </div>`;
@@ -400,11 +400,11 @@ function renderPanel() {
               <option value="untagged"${filterTag === 'untagged' ? ' selected' : ''}>No tags</option>
               ${buildRoleFilterOptions(s)}
             </select>
-            <button class="export-btn" onclick="exportCSV()" title="Export CSV">
+            <button class="export-btn" onclick="exportCSV()" title="Export CSV" aria-label="Export CSV">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               CSV
             </button>
-            <button class="export-btn" onclick="exportJSON()" title="Export JSON">
+            <button class="export-btn" onclick="exportJSON()" title="Export JSON" aria-label="Export JSON">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               JSON
             </button>
@@ -431,7 +431,13 @@ function renderPanel() {
     const detailEl = document.getElementById('memberDetail');
     const badgeEl = document.getElementById('memberBadge');
     if (listEl) listEl.innerHTML = buildMemberRows(filtered, searchVal);
-    if (detailEl) detailEl.innerHTML = buildDetailHtml(s);
+
+    // Only re-render detail if the active member changed or detail is empty
+    const notesEl = document.getElementById('notesArea');
+    const hasFocusedNotes = notesEl && document.activeElement === notesEl;
+    if (detailEl && !hasFocusedNotes) {
+        detailEl.innerHTML = buildDetailHtml(s);
+    }
     if (badgeEl) badgeEl.textContent = allMembers.length;
 }
 
@@ -572,6 +578,11 @@ async function patchMember(mid, body) {
 
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.classList.add('hidden'); }));
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay:not(.hidden)').forEach(o => o.classList.add('hidden'));
+    }
+});
 
 // ── Export ─────────────────────────────────────────────────────────────────────
 function exportCSV() {

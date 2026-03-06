@@ -22,7 +22,7 @@
     <label>Token</label>
     <div class="token-input-wrap">
       <input type="password" class="token-input" id="tokenInput" placeholder="Paste your Discord user token..." autocomplete="off" spellcheck="false" />
-      <button class="token-toggle" onclick="toggleTokenVisibility()" id="tokenToggle">👁</button>
+      <button class="token-toggle" onclick="toggleTokenVisibility()" id="tokenToggle" aria-label="Toggle token visibility">👁</button>
     </div>
     <button class="btn btn-primary btn-sm" onclick="validateToken()" id="validateBtn">Connect</button>
     <div id="tokenStatus" class="token-status"></div>

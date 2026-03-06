@@ -6,7 +6,7 @@ Thanks for your interest in contributing! Here's how to get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/server-lens.git
+git clone https://github.com/MuTe43/Discord-member-scraper.git
 cd server-lens
 
 # Install dependencies

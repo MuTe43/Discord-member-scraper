@@ -28,6 +28,7 @@ def root():
 
 
 DATA_FILE = "data.json"
+_data_lock = asyncio.Lock()
 
 
 def load_data():
@@ -67,31 +68,32 @@ async def scrape_server(req: ScrapeRequest):
         try:
             guild_info = await fetch_guild_info(req.token, req.guild_id)
             members = await scrape_gateway(req.token, req.guild_id, progress_q)
-            data = load_data()
-            existing = data["servers"].get(req.guild_id, {})
-            existing_members = existing.get("members", {})
-            members_dict = {}
-            for m in members:
-                mid = m["id"]
-                if mid in existing_members:
-                    m["quirks"] = existing_members[mid].get("quirks", [])
-                    m["notes"] = existing_members[mid].get("notes", "")
-                members_dict[mid] = m
-            roles = {}
-            for r in guild_info.get("roles", []):
-                roles[r["id"]] = {
-                    "id": r["id"], "name": r["name"],
-                    "color": r.get("color", 0), "position": r.get("position", 0),
+            async with _data_lock:
+                data = load_data()
+                existing = data["servers"].get(req.guild_id, {})
+                existing_members = existing.get("members", {})
+                members_dict = {}
+                for m in members:
+                    mid = m["id"]
+                    if mid in existing_members:
+                        m["quirks"] = existing_members[mid].get("quirks", [])
+                        m["notes"] = existing_members[mid].get("notes", "")
+                    members_dict[mid] = m
+                roles = {}
+                for r in guild_info.get("roles", []):
+                    roles[r["id"]] = {
+                        "id": r["id"], "name": r["name"],
+                        "color": r.get("color", 0), "position": r.get("position", 0),
+                    }
+                data["servers"][req.guild_id] = {
+                    "id": req.guild_id,
+                    "name": guild_info.get("name", req.guild_id),
+                    "icon": guild_info.get("icon"),
+                    "member_count": len(members_dict),
+                    "roles": roles,
+                    "members": members_dict,
                 }
-            data["servers"][req.guild_id] = {
-                "id": req.guild_id,
-                "name": guild_info.get("name", req.guild_id),
-                "icon": guild_info.get("icon"),
-                "member_count": len(members_dict),
-                "roles": roles,
-                "members": members_dict,
-            }
-            save_data(data)
+                save_data(data)
             await progress_q.put({"type": "done", "guild_id": req.guild_id, "name": guild_info.get("name", req.guild_id), "scraped": len(members_dict)})
         except HTTPException as e:
             await progress_q.put({"type": "error", "detail": e.detail})
@@ -129,24 +131,26 @@ def get_members(guild_id: str):
 
 
 @app.patch("/api/servers/{guild_id}/members/{member_id}")
-def update_member(guild_id: str, member_id: str, req: UpdateMemberRequest):
-    data = load_data()
-    server = data["servers"].get(guild_id)
-    if not server: raise HTTPException(404, "Server not found.")
-    member = server["members"].get(member_id)
-    if not member: raise HTTPException(404, "Member not found.")
-    if req.quirks is not None: member["quirks"] = req.quirks
-    if req.notes is not None: member["notes"] = req.notes
-    save_data(data)
+async def update_member(guild_id: str, member_id: str, req: UpdateMemberRequest):
+    async with _data_lock:
+        data = load_data()
+        server = data["servers"].get(guild_id)
+        if not server: raise HTTPException(404, "Server not found.")
+        member = server["members"].get(member_id)
+        if not member: raise HTTPException(404, "Member not found.")
+        if req.quirks is not None: member["quirks"] = req.quirks
+        if req.notes is not None: member["notes"] = req.notes
+        save_data(data)
     return member
 
 
 @app.delete("/api/servers/{guild_id}")
-def delete_server(guild_id: str):
-    data = load_data()
-    if guild_id not in data["servers"]: raise HTTPException(404, "Server not found.")
-    del data["servers"][guild_id]
-    save_data(data)
+async def delete_server(guild_id: str):
+    async with _data_lock:
+        data = load_data()
+        if guild_id not in data["servers"]: raise HTTPException(404, "Server not found.")
+        del data["servers"][guild_id]
+        save_data(data)
     return {"deleted": guild_id}
 
 

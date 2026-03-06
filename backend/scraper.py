@@ -3,7 +3,7 @@ import aiohttp
 import time
 from fastapi import HTTPException
 
-from gateway import get_session, GatewaySession
+from gateway import get_session
 
 DISCORD_API = "https://discord.com/api/v9"
 
@@ -35,7 +35,7 @@ async def scrape_gateway(token: str, guild_id: str, progress_q: asyncio.Queue) -
         await progress_q.put({"type": "progress", "text": msg})
 
     members: dict[str, dict] = {}
-    gs = get_session(token)
+    gs = await get_session(token)
 
     # Connect (or reuse existing connection)
     retries = 0
@@ -139,7 +139,6 @@ async def scrape_gateway(token: str, guild_id: str, progress_q: asyncio.Queue) -
     for i, rang in enumerate(all_ranges):
         range_start, range_end = rang
 
-        already_have = sum(1 for m in members.values() if True)
         await gs.send({
             "op": 14,
             "d": {

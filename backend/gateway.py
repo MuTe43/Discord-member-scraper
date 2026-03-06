@@ -267,9 +267,11 @@ class GatewaySession:
 
 # Global session cache: token -> GatewaySession
 _sessions: dict[str, GatewaySession] = {}
+_sessions_lock = asyncio.Lock()
 
 
-def get_session(token: str) -> GatewaySession:
-    if token not in _sessions:
-        _sessions[token] = GatewaySession(token)
-    return _sessions[token]
+async def get_session(token: str) -> GatewaySession:
+    async with _sessions_lock:
+        if token not in _sessions:
+            _sessions[token] = GatewaySession(token)
+        return _sessions[token]
