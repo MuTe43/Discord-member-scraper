@@ -7,8 +7,8 @@ let servers = {};
 let activeServer = null;
 let activeMember = null;
 let searchVal = '';
-let sortBy = 'name';
-let filterTag = 'all';
+let sortBy = sessionStorage.getItem('sl_sortBy') || 'name';
+let filterTag = sessionStorage.getItem('sl_filterTag') || 'all';
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.onload = async () => {
@@ -117,16 +117,20 @@ function selectGuild(id) {
 async function startScrape() {
     const guildId = selectedGuildId || document.getElementById('manualGuildId').value.trim();
     if (!guildId) { toast('error', 'Select a server or enter a Guild ID.'); return; }
+    if (!selectedGuildId && !/^\d+$/.test(guildId)) { toast('error', 'Guild ID must be a number (only digits).'); return; }
     document.getElementById('guildPickerSection').classList.add('hidden');
     document.getElementById('scrapeProgress').classList.remove('hidden');
     document.getElementById('startScrapeBtn').disabled = true;
     const logEl = document.getElementById('scrapeProgressText');
 
+    const scrapeAbort = new AbortController();
+    const scrapeTimeout = setTimeout(() => scrapeAbort.abort(), 180000);
     try {
         await new Promise((resolve, reject) => {
             fetch(`${API}/api/scrape`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, guild_id: guildId })
+                body: JSON.stringify({ token, guild_id: guildId }),
+                signal: scrapeAbort.signal
             }).then(res => {
                 if (!res.ok) return res.json().then(d => reject(new Error(d.detail || 'Scrape failed')));
                 const reader = res.body.getReader();
@@ -163,11 +167,14 @@ async function startScrape() {
             setTimeout(() => document.getElementById('memberPanel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
         });
     } catch (e) {
-        toast('error', e.message);
+        const msg = e.name === 'AbortError' ? 'Scrape timed out after 3 minutes.' : e.message;
+        toast('error', msg);
         document.getElementById('guildPickerSection').classList.remove('hidden');
         document.getElementById('scrapeProgress').classList.add('hidden');
         document.getElementById('startScrapeBtn').disabled = false;
         document.getElementById('startScrapeBtn').innerHTML = 'Scrape';
+    } finally {
+        clearTimeout(scrapeTimeout);
     }
 }
 
@@ -268,7 +275,8 @@ function buildRoleBadges(m, s) {
         .sort((a, b) => b.position - a.position);
     if (!resolved.length) return '';
     return resolved.map(r => {
-        const c = r.color ? '#' + r.color.toString(16).padStart(6, '0') : 'var(--muted)';
+        const hex = r.color ? '#' + r.color.toString(16).padStart(6, '0') : '';
+        const c = hex && /^#[0-9a-f]{6}$/i.test(hex) ? hex : 'var(--muted)';
         return `<span class="role-badge" style="--role-color:${c}">${escHtml(r.name)}</span>`;
     }).join('');
 }
@@ -287,7 +295,9 @@ function getTopRoleColor(m) {
         const r = s.roles[rid];
         if (r && r.color && (!top || r.position > top.position)) top = r;
     }
-    return top ? '#' + top.color.toString(16).padStart(6, '0') : null;
+    if (!top) return null;
+    const hex = '#' + top.color.toString(16).padStart(6, '0');
+    return /^#[0-9a-f]{6}$/i.test(hex) ? hex : null;
 }
 
 function buildMemberRows(filtered, q) {
@@ -444,7 +454,7 @@ function renderPanel() {
 // ── Actions ───────────────────────────────────────────────────────────────────
 function toggleServer(id) {
     if (activeServer === id) { activeServer = null; activeMember = null; }
-    else { activeServer = id; activeMember = null; searchVal = ''; sortBy = 'name'; filterTag = 'all'; }
+    else { activeServer = id; activeMember = null; searchVal = ''; }
     render();
     if (activeServer) setTimeout(() => document.getElementById('memberPanel')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 }
@@ -453,12 +463,16 @@ async function rescrapeServer(e, id) {
     e.stopPropagation();
     if (!token) { toast('error', 'Connect your token first.'); return; }
     toast('info', 'Re-scraping...');
+    const rescrapeAbort = new AbortController();
+    const rescrapeTimeout = setTimeout(() => rescrapeAbort.abort(), 180000);
     try {
         await new Promise((resolve, reject) => {
             fetch(`${API}/api/scrape`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, guild_id: id })
+                body: JSON.stringify({ token, guild_id: id }),
+                signal: rescrapeAbort.signal
             }).then(res => {
+                if (!res.ok) return res.json().then(d => reject(new Error(d.detail || 'Re-scrape failed'))).catch(() => reject(new Error(`Re-scrape failed (HTTP ${res.status})`)));
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder();
                 let buf = '';
@@ -483,7 +497,12 @@ async function rescrapeServer(e, id) {
         });
         await loadServers();
         if (activeServer === id) renderPanel();
-    } catch (e) { toast('error', e.message); }
+    } catch (err) {
+        const msg = err.name === 'AbortError' ? 'Re-scrape timed out after 3 minutes.' : err.message;
+        toast('error', msg);
+    } finally {
+        clearTimeout(rescrapeTimeout);
+    }
 }
 
 async function deleteServer(e, id) {
@@ -507,17 +526,22 @@ function selectMember(mid) {
     renderPanel();
 }
 
+let _searchTimer = null;
 function handleSearch(val) {
     searchVal = val;
-    const s = servers[activeServer];
-    if (!s) return;
-    const filtered = getFilteredMembers(s);
-    const listEl = document.getElementById('memberList');
-    if (listEl) listEl.innerHTML = buildMemberRows(filtered, val);
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(() => {
+        const s = servers[activeServer];
+        if (!s) return;
+        const filtered = getFilteredMembers(s);
+        const listEl = document.getElementById('memberList');
+        if (listEl) listEl.innerHTML = buildMemberRows(filtered, searchVal);
+    }, 150);
 }
 
 function handleSort(val) {
     sortBy = val;
+    sessionStorage.setItem('sl_sortBy', val);
     const s = servers[activeServer];
     if (!s) return;
     const filtered = getFilteredMembers(s);
@@ -527,6 +551,7 @@ function handleSort(val) {
 
 function handleFilter(val) {
     filterTag = val;
+    sessionStorage.setItem('sl_filterTag', val);
     const s = servers[activeServer];
     if (!s) return;
     const filtered = getFilteredMembers(s);

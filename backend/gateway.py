@@ -3,8 +3,11 @@ import aiohttp
 import zlib
 import json
 import time
+import logging
 from typing import Optional
 from fastapi import HTTPException
+
+logger = logging.getLogger(__name__)
 
 
 GATEWAY_URL = "wss://gateway.discord.gg/?encoding=json&v=9&compress=zlib-stream"
@@ -64,14 +67,17 @@ class GatewaySession:
         self._recv_task: Optional[asyncio.Task] = None
         self._last_identify = 0.0
         self._connected = False
+        self._last_used = time.monotonic()
         self._guilds_channels: dict[str, str] = {}
         self._guilds_roles: dict[str, dict] = {}
 
     async def ensure_connected(self, emit):
         """Connect (or reconnect) if not already live. Safe to call concurrently."""
+        self._last_used = time.monotonic()
         async with self._lock:
             if self._connected and self._ws and not self._ws.closed:
                 return
+            logger.info("Gateway session connecting...")
             await self._connect(emit)
 
     async def _connect(self, emit):
@@ -235,7 +241,13 @@ class GatewaySession:
             try:
                 await self._raw_send({"op": 1, "d": self._seq})
                 await asyncio.sleep(interval)
-            except Exception:
+            except Exception as e:
+                logger.warning("Heartbeat failed: %s — closing WebSocket", e)
+                if self._ws and not self._ws.closed:
+                    try:
+                        await self._ws.close()
+                    except Exception:
+                        pass
                 break
 
     async def _teardown(self):
@@ -269,9 +281,35 @@ class GatewaySession:
 _sessions: dict[str, GatewaySession] = {}
 _sessions_lock = asyncio.Lock()
 
+SESSION_MAX_IDLE = 1800  # 30 minutes
+SESSION_MAX_COUNT = 10
+
 
 async def get_session(token: str) -> GatewaySession:
     async with _sessions_lock:
+        # Evict idle sessions
+        now = time.monotonic()
+        stale = [t for t, s in _sessions.items() if now - s._last_used > SESSION_MAX_IDLE]
+        for t in stale:
+            logger.info("Evicting idle gateway session")
+            try:
+                await _sessions[t]._teardown()
+            except Exception:
+                pass
+            del _sessions[t]
+
+        # Cap total sessions
+        if token not in _sessions and len(_sessions) >= SESSION_MAX_COUNT:
+            oldest_token = min(_sessions, key=lambda t: _sessions[t]._last_used)
+            logger.info("Session cache full, evicting oldest session")
+            try:
+                await _sessions[oldest_token]._teardown()
+            except Exception:
+                pass
+            del _sessions[oldest_token]
+
         if token not in _sessions:
             _sessions[token] = GatewaySession(token)
-        return _sessions[token]
+        session = _sessions[token]
+        session._last_used = now
+        return session

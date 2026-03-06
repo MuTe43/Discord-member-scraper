@@ -1,34 +1,85 @@
 import os
 import json
 import asyncio
-from fastapi import FastAPI, HTTPException
+import logging
+import tempfile
+from pathlib import Path
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, StreamingResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from typing import AsyncGenerator
 import aiohttp
 import uvicorn
 
 from models import ScrapeRequest, UpdateMemberRequest, ValidateTokenRequest
 from scraper import scrape_gateway, fetch_guild_info, fetch_user_guilds
+from gateway import _sessions, _sessions_lock
+
+logger = logging.getLogger(__name__)
 
 DISCORD_API = "https://discord.com/api/v9"
 HTTP_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 }
 
+# Resolve paths relative to this file, not CWD
+_BACKEND_DIR = Path(__file__).resolve().parent
+_FRONTEND_DIR = _BACKEND_DIR.parent / "frontend"
+
+# Environment configuration
+CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", "8000"))
+
 app = FastAPI(title="Server Lens API")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+
+
+# Security headers middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "img-src 'self' https://cdn.discordapp.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "script-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'"
+        )
+        return response
+
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.mount("/static", StaticFiles(directory=str(_FRONTEND_DIR)), name="static")
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
 
 
 @app.get("/")
 def root():
-    return FileResponse("../frontend/index.html")
+    return FileResponse(str(_FRONTEND_DIR / "index.html"))
 
 
-DATA_FILE = "data.json"
+DATA_FILE = str(_BACKEND_DIR / "data.json")
 _data_lock = asyncio.Lock()
+
+# Shared aiohttp session for REST calls
+_http_session: aiohttp.ClientSession | None = None
+
+
+async def get_http_session() -> aiohttp.ClientSession:
+    global _http_session
+    if _http_session is None or _http_session.closed:
+        _http_session = aiohttp.ClientSession()
+    return _http_session
 
 
 def load_data():
@@ -39,8 +90,17 @@ def load_data():
 
 
 def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(_BACKEND_DIR), suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, DATA_FILE)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 # ─── API Routes ────────────────────────────────────────────────────────────────
@@ -48,11 +108,11 @@ def save_data(data):
 @app.post("/api/validate-token")
 async def validate_token(req: ValidateTokenRequest):
     headers = {**HTTP_HEADERS, "Authorization": req.token}
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{DISCORD_API}/users/@me", headers=headers) as resp:
-            if resp.status == 401: raise HTTPException(401, "Invalid token.")
-            if resp.status != 200: raise HTTPException(resp.status, await resp.text())
-            user = await resp.json()
+    session = await get_http_session()
+    async with session.get(f"{DISCORD_API}/users/@me", headers=headers) as resp:
+        if resp.status == 401: raise HTTPException(401, "Invalid token.")
+        if resp.status != 200: raise HTTPException(resp.status, await resp.text())
+        user = await resp.json()
     guilds = await fetch_user_guilds(req.token)
     return {
         "user": {"id": user["id"], "username": user.get("username"), "global_name": user.get("global_name"), "avatar": user.get("avatar")},
@@ -102,16 +162,22 @@ async def scrape_server(req: ScrapeRequest):
 
     async def event_stream() -> AsyncGenerator[str, None]:
         task = asyncio.create_task(run_scrape())
-        while True:
+        try:
+            while True:
+                try:
+                    item = await asyncio.wait_for(progress_q.get(), timeout=120)
+                except asyncio.TimeoutError:
+                    yield 'data: {"type":"error","detail":"Overall timeout."}\n\n'
+                    break
+                yield f"data: {json.dumps(item)}\n\n"
+                if item.get("type") in ("done", "error"):
+                    break
+        finally:
+            task.cancel()
             try:
-                item = await asyncio.wait_for(progress_q.get(), timeout=120)
-            except asyncio.TimeoutError:
-                yield 'data: {"type":"error","detail":"Overall timeout."}\n\n'
-                break
-            yield f"data: {json.dumps(item)}\n\n"
-            if item.get("type") in ("done", "error"):
-                break
-        task.cancel()
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass
 
     return StreamingResponse(event_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
@@ -154,5 +220,23 @@ async def delete_server(guild_id: str):
     return {"deleted": guild_id}
 
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down — closing all gateway sessions...")
+    async with _sessions_lock:
+        for tok, sess in _sessions.items():
+            try:
+                await sess._teardown()
+            except Exception:
+                pass
+        _sessions.clear()
+    global _http_session
+    if _http_session and not _http_session.closed:
+        await _http_session.close()
+        _http_session = None
+    logger.info("Shutdown complete.")
+
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=True)
