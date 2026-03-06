@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/self--hosted-local%20data-8B5CF6" alt="Self-Hosted">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+  <img src="https://github.com/MuTe43/Discord-member-scraper/actions/workflows/ci.yml/badge.svg" alt="CI">
 </p>
 
 ---
@@ -47,7 +48,7 @@ Discord's built-in member list only shows online users, hides behind slow scroll
 ### 🐳 Docker (Recommended)
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/server-lens.git
+git clone https://github.com/MuTe43/Discord-member-scraper.git
 cd server-lens
 docker compose up
 ```
@@ -57,7 +58,7 @@ Open [http://localhost:8000](http://localhost:8000) and you're done.
 ### 🐍 Manual
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/server-lens.git
+git clone https://github.com/MuTe43/Discord-member-scraper.git
 cd server-lens
 pip install -r requirements.txt
 cd backend
