@@ -1,95 +1,133 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Server Lens — Discord member tracker. Scrape, search, and tag server members with a beautiful self-hosted tool.">
-<title>Server Lens</title>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="Server Lens — Self-hosted Discord member scraper & tracker. Scrape all server members (including offline), add custom tags, notes, and export to CSV/JSON.">
+  <meta name="keywords"
+    content="discord, member scraper, discord tool, server members, discord bot, member list, discord scraper, self-hosted, discord gateway, member tracker">
+  <meta name="author" content="MuTe43">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#5865f2">
+
+  <!-- Open Graph / Social Sharing -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Server Lens — Discord Member Scraper & Tracker">
+  <meta property="og:description"
+    content="Scrape all Discord server members (including offline), tag them, add notes, and export to CSV/JSON. 100% self-hosted.">
+  <meta property="og:image" content="/static/style.css">
+  <meta property="og:url" content="https://github.com/MuTe43/Discord-member-scraper">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Server Lens — Discord Member Scraper">
+  <meta name="twitter:description"
+    content="Self-hosted Discord member scraper with real-time Gateway API scraping. Beautiful dark UI.">
+
+  <title>Server Lens — Discord Member Scraper & Tracker</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
+
 <body>
-<div class="app">
-  <header>
-    <div class="logo">
-      <div class="logo-eyebrow">// member tracker</div>
-      <h1>Server Lens</h1>
-    </div>
-  </header>
+  <div class="app">
+    <header>
+      <div class="logo">
+        <div class="logo-eyebrow">// member tracker</div>
+        <h1>Server Lens</h1>
+      </div>
+    </header>
 
-  <!-- Token bar -->
-  <div class="token-bar">
-    <label>Token</label>
-    <div class="token-input-wrap">
-      <input type="password" class="token-input" id="tokenInput" placeholder="Paste your Discord user token..." autocomplete="off" spellcheck="false" />
-      <button class="token-toggle" onclick="toggleTokenVisibility()" id="tokenToggle" aria-label="Toggle token visibility">👁</button>
+    <!-- Token bar -->
+    <div class="token-bar">
+      <label>Token</label>
+      <div class="token-input-wrap">
+        <input type="password" class="token-input" id="tokenInput" placeholder="Paste your Discord user token..."
+          autocomplete="off" spellcheck="false" />
+        <button class="token-toggle" onclick="toggleTokenVisibility()" id="tokenToggle"
+          aria-label="Toggle token visibility">👁</button>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="validateToken()" id="validateBtn">Connect</button>
+      <div id="tokenStatus" class="token-status"></div>
+      <div id="userChip" class="hidden"></div>
+      <div class="token-disclaimer">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        Token stays local — never sent to third parties
+      </div>
     </div>
-    <button class="btn btn-primary btn-sm" onclick="validateToken()" id="validateBtn">Connect</button>
-    <div id="tokenStatus" class="token-status"></div>
-    <div id="userChip" class="hidden"></div>
-    <div class="token-disclaimer">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      Token stays local — never sent to third parties
+
+    <!-- Action row -->
+    <div class="action-row">
+      <button class="btn btn-primary" onclick="openScrapeModal()" id="scrapeBtn" disabled>
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        Scrape Server
+      </button>
+      <span class="hint">Connect token → pick server → scrape</span>
     </div>
+
+    <!-- Server cards -->
+    <div class="servers-grid" id="serversGrid">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🔭</div>
+        <p>No servers yet. Connect your token and click <span>Scrape Server</span>.</p>
+      </div>
+    </div>
+
+    <!-- Member panel (sidebar layout) -->
+    <div id="memberPanel" class="hidden"></div>
   </div>
 
-  <!-- Action row -->
-  <div class="action-row">
-    <button class="btn btn-primary" onclick="openScrapeModal()" id="scrapeBtn" disabled>
-      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      Scrape Server
-    </button>
-    <span class="hint">Connect token → pick server → scrape</span>
-  </div>
+  <!-- Scrape modal -->
+  <div class="modal-overlay hidden" id="scrapeModal">
+    <div class="modal">
+      <h2>Scrape a Server</h2>
+      <p class="modal-subtitle">Pick one of your servers or enter a Guild ID manually.</p>
 
-  <!-- Server cards -->
-  <div class="servers-grid" id="serversGrid">
-    <div class="empty-state" id="emptyState">
-      <div class="empty-icon">🔭</div>
-      <p>No servers yet. Connect your token and click <span>Scrape Server</span>.</p>
-    </div>
-  </div>
-
-  <!-- Member panel (sidebar layout) -->
-  <div id="memberPanel" class="hidden"></div>
-</div>
-
-<!-- Scrape modal -->
-<div class="modal-overlay hidden" id="scrapeModal">
-  <div class="modal">
-    <h2>Scrape a Server</h2>
-    <p class="modal-subtitle">Pick one of your servers or enter a Guild ID manually.</p>
-
-    <div id="guildPickerSection">
-      <div class="form-group">
-        <label class="form-label">Your Servers</label>
-        <div class="guild-list" id="guildList">
-          <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace">Loading...</div>
+      <div id="guildPickerSection">
+        <div class="form-group">
+          <label class="form-label">Your Servers</label>
+          <div class="guild-list" id="guildList">
+            <div
+              style="text-align:center;padding:16px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace">
+              Loading...</div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="form-group">
+          <label class="form-label">Or enter Guild ID manually</label>
+          <input class="form-input" id="manualGuildId" placeholder="e.g. 1234567890123456789" spellcheck="false" />
         </div>
       </div>
-      <div class="divider"></div>
-      <div class="form-group">
-        <label class="form-label">Or enter Guild ID manually</label>
-        <input class="form-input" id="manualGuildId" placeholder="e.g. 1234567890123456789" spellcheck="false" />
-      </div>
-    </div>
 
-    <div id="scrapeProgress" class="hidden" style="padding: 4px 0">
-      <div class="scrape-log">
-        <div class="scrape-log-header"><div class="spinner"></div> Gateway log</div>
-        <div class="scrape-log-text" id="scrapeProgressText">Starting...</div>
+      <div id="scrapeProgress" class="hidden" style="padding: 4px 0">
+        <div class="scrape-log">
+          <div class="scrape-log-header">
+            <div class="spinner"></div> Gateway log
+          </div>
+          <div class="scrape-log-text" id="scrapeProgressText">Starting...</div>
+        </div>
       </div>
-    </div>
 
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('scrapeModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="startScrape()" id="startScrapeBtn">Scrape</button>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('scrapeModal')">Cancel</button>
+        <button class="btn btn-primary" onclick="startScrape()" id="startScrapeBtn">Scrape</button>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="toast-container" id="toastContainer"></div>
+  <div class="toast-container" id="toastContainer"></div>
 
-<script src="/static/app.js"></script>
+  <script src="/static/app.js"></script>
 </body>
+
 </html>
