@@ -25,30 +25,11 @@
 
 ---
 
-## 🖼️ Screenshots
+## 🖼️ Screenshot
 
 <p align="center">
-  <img src="assets/screenshot_dashboard.png" alt="Server Lens Dashboard — Discord server cards, member list, and search" width="100%" style="border-radius: 12px;">
+  <img src="assets/screenshot.png" alt="Server Lens — member list with roles, quirk tags, and notes" width="100%" style="border-radius: 12px;">
 </p>
-
-<details>
-<summary><b>🖱️ More screenshots</b></summary>
-
-<br>
-
-<p align="center">
-  <b>Scrape Modal — pick a server or enter Guild ID</b><br><br>
-  <img src="assets/screenshot_scrape_modal.png" alt="Server Lens scrape modal with Discord server picker" width="80%" style="border-radius: 12px;">
-</p>
-
-<br>
-
-<p align="center">
-  <b>Member Detail — roles, tags, and notes</b><br><br>
-  <img src="assets/screenshot_member_detail.png" alt="Server Lens member detail panel with roles, quirk tags, and notes" width="100%" style="border-radius: 12px;">
-</p>
-
-</details>
 
 ---
 
